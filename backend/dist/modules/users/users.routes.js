@@ -1,0 +1,15 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.usersRoutes = void 0;
+const express_1 = require("express");
+const auth_middleware_1 = require("../../middleware/auth.middleware");
+const role_middleware_1 = require("../../middleware/role.middleware");
+const validation_middleware_1 = require("../../middleware/validation.middleware");
+const users_controller_1 = require("./users.controller");
+const users_validation_1 = require("./users.validation");
+exports.usersRoutes = (0, express_1.Router)();
+exports.usersRoutes.use(auth_middleware_1.authMiddleware, (0, role_middleware_1.requireRole)("admin"));
+exports.usersRoutes.get("/", users_controller_1.usersController.list);
+exports.usersRoutes.patch("/:id/approve", users_controller_1.usersController.approve);
+exports.usersRoutes.patch("/:id/block", users_controller_1.usersController.block);
+exports.usersRoutes.patch("/:id/role", (0, validation_middleware_1.validateBody)(users_validation_1.updateUserRoleSchema), users_controller_1.usersController.changeRole);
