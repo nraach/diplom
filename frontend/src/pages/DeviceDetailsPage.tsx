@@ -1,12 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { resolveApiUrl } from "../api/client";
 import { cyclesApi } from "../api/cycles.api";
 import { devicesApi } from "../api/devices.api";
 import { CycleForm } from "../components/CycleForm";
+import { CycleNextAction } from "../components/CycleNextAction";
+import { CycleTracker } from "../components/CycleTracker";
 import { DeviceForm } from "../components/DeviceForm";
-import { HandoverForm } from "../components/HandoverForm";
 import { StatusBadge } from "../components/StatusBadge";
 import { useAuth } from "../hooks/useAuth";
 import { usePollingQuery } from "../hooks/usePollingQuery";
@@ -20,6 +21,7 @@ export function DeviceDetailsPage() {
   const canCreateRecords = user?.role === "admin" || user?.role === "technical_specialist";
   const canManageRecords = user?.role === "admin";
   const queryClient = useQueryClient();
+  const editCycleSectionRef = useRef<HTMLElement | null>(null);
   const [editingCycle, setEditingCycle] = useState<ServiceCycle | null>(null);
   const [isEditingDevice, setIsEditingDevice] = useState(false);
   const [isCreateCycleOpen, setIsCreateCycleOpen] = useState(false);
@@ -85,7 +87,34 @@ export function DeviceDetailsPage() {
     () => device?.serviceCycles.find((cycle) => cycle.status !== "handed_over" && cycle.status !== "cancelled") ?? null,
     [device?.serviceCycles]
   );
+  const archivedCycles = useMemo(
+    () => device?.serviceCycles.filter((cycle) => cycle.id !== activeCycle?.id) ?? [],
+    [activeCycle?.id, device?.serviceCycles]
+  );
   const isWrittenOff = Boolean(device?.isWrittenOff || device?.currentStatus === "written_off");
+
+  useEffect(() => {
+    if (!editingCycle || !editCycleSectionRef.current) {
+      return;
+    }
+
+    editCycleSectionRef.current.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+  }, [editingCycle]);
+
+  function openCycleEditor(targetCycle: ServiceCycle) {
+    if (editingCycle?.id === targetCycle.id) {
+      editCycleSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+      return;
+    }
+
+    setEditingCycle(targetCycle);
+  }
 
   if (deviceQuery.isLoading) {
     return <div className="panel muted-panel">Загрузка прибора...</div>;
@@ -205,33 +234,81 @@ export function DeviceDetailsPage() {
         {isWrittenOff ? <p className="muted-text">Для списанного прибора нельзя создать новый цикл.</p> : null}
         {!isWrittenOff && activeCycle ? <p className="muted-text">У этого прибора уже есть активный сервисный цикл.</p> : null}
 
+        {activeCycle ? (
+          <div className="active-cycle-stack">
+            <div className="active-cycle-card">
+              <div className="active-cycle-header">
+                <div>
+                  <p className="eyebrow">{cycleTypeLabels[activeCycle.type]}</p>
+                  <h4>Активный цикл</h4>
+                </div>
+                <div className="status-row">
+                  <StatusBadge label={cycleStatusLabels[activeCycle.status]} value={activeCycle.status} />
+                </div>
+              </div>
+
+              <CycleTracker cycle={activeCycle} />
+
+              <dl className="details-list active-cycle-details">
+                <div>
+                  <dt>Создал</dt>
+                  <dd>{activeCycle.createdBy?.fullName ?? "Неизвестно"}</dd>
+                </div>
+                <div>
+                  <dt>Создан</dt>
+                  <dd>{formatDate(activeCycle.createdAt)}</dd>
+                </div>
+                <div>
+                  <dt>SOP</dt>
+                  <dd>{formatCheck(activeCycle.sopCheck)}</dd>
+                </div>
+                <div>
+                  <dt>Depot</dt>
+                  <dd>{formatCheck(activeCycle.depotCheck)}</dd>
+                </div>
+                <div>
+                  <dt>Готов к передаче</dt>
+                  <dd>{activeCycle.readyForHandover ? "Да" : "Нет"}</dd>
+                </div>
+                <div>
+                  <dt>Комментарий</dt>
+                  <dd>{activeCycle.comment ?? "Нет комментария"}</dd>
+                </div>
+              </dl>
+            </div>
+
+            {canManageRecords ? (
+              <CycleNextAction
+                cycle={activeCycle}
+                disabled={updateCycleMutation.isPending || handoverMutation.isPending}
+                onAdvanceStatus={async (input) => {
+                  if (!window.confirm("Перевести цикл к следующему шагу?")) {
+                    return Promise.resolve();
+                  }
+
+                  return updateCycleMutation.mutateAsync({ cycleId: activeCycle.id, input });
+                }}
+                onOpenEditor={() => openCycleEditor(activeCycle)}
+                onHandover={async (comment) => {
+                  if (!window.confirm("Подтвердить передачу прибора?")) {
+                    return Promise.resolve();
+                  }
+
+                  return handoverMutation.mutateAsync({ cycleId: activeCycle.id, comment });
+                }}
+              />
+            ) : null}
+          </div>
+        ) : null}
+
         {!isWrittenOff && !activeCycle && isCreateCycleOpen && canCreateRecords ? (
           <CycleForm deviceId={device.id} submitLabel="Создать цикл" onSubmit={(input) => createCycleMutation.mutateAsync(input)} />
         ) : null}
         {createCycleMutation.error ? <p className="error-text">{createCycleMutation.error.message}</p> : null}
-
-        {activeCycle && canManageRecords ? (
-          <div className="section-divider">
-            <div className="panel-heading">
-              <h3>Передача</h3>
-            </div>
-            <HandoverForm
-              onSubmit={(comment) => {
-                if (!window.confirm("Подтвердить передачу прибора?")) {
-                  return Promise.resolve();
-                }
-
-                return handoverMutation.mutateAsync({ cycleId: activeCycle.id, comment });
-              }}
-              disabled={handoverMutation.isPending}
-            />
-            {handoverMutation.error ? <p className="error-text">{handoverMutation.error.message}</p> : null}
-          </div>
-        ) : null}
       </section>
 
       {editingCycle && canManageRecords ? (
-        <section className="panel">
+        <section className="panel" ref={editCycleSectionRef}>
           <div className="panel-heading">
             <h3>Редактировать сервисный цикл</h3>
             <button type="button" className="ghost-button" onClick={() => setEditingCycle(null)}>
@@ -252,7 +329,7 @@ export function DeviceDetailsPage() {
           <h3>История сервисных циклов</h3>
         </div>
         <div className="cycle-list">
-          {device.serviceCycles.map((cycle) => (
+          {archivedCycles.map((cycle) => (
             <article className="cycle-card" key={cycle.id}>
               <div className="panel-heading">
                 <div>
@@ -262,18 +339,19 @@ export function DeviceDetailsPage() {
                   </h4>
                 </div>
                 {canManageRecords ? (
-                  <button type="button" className="ghost-button" onClick={() => setEditingCycle(cycle)}>
+                  <button type="button" className="ghost-button" onClick={() => openCycleEditor(cycle)}>
                     Редактировать
                   </button>
                 ) : null}
               </div>
+              <CycleTracker cycle={cycle} compact />
               <dl className="details-list">
                 <div>
                   <dt>SOP</dt>
                   <dd>{formatCheck(cycle.sopCheck)}</dd>
                 </div>
                 <div>
-                  <dt>Депо</dt>
+                  <dt>Depot</dt>
                   <dd>{formatCheck(cycle.depotCheck)}</dd>
                 </div>
                 <div>
@@ -299,7 +377,7 @@ export function DeviceDetailsPage() {
               </dl>
             </article>
           ))}
-          {device.serviceCycles.length === 0 ? <p className="muted-text">Циклов пока нет.</p> : null}
+          {archivedCycles.length === 0 ? <p className="muted-text">Завершенных или отмененных циклов пока нет.</p> : null}
         </div>
       </section>
     </div>

@@ -5,16 +5,10 @@ $backendPath = Join-Path $root "backend"
 $frontendPath = Join-Path $root "frontend"
 $backendEnv = Join-Path $backendPath ".env"
 $frontendEnv = Join-Path $frontendPath ".env"
+$concurrentlyPath = Join-Path $root "node_modules\.bin\concurrently.cmd"
 
 function Write-Step($message) {
   Write-Host "==> $message" -ForegroundColor Cyan
-}
-
-function Start-TerminalWindow($title, $workdir, $command) {
-  $escapedWorkdir = $workdir.Replace("'", "''")
-  $escapedTitle = $title.Replace("'", "''")
-  $fullCommand = "Set-Location '$escapedWorkdir'; `$Host.UI.RawUI.WindowTitle = '$escapedTitle'; $command"
-  Start-Process powershell.exe -ArgumentList "-NoExit", "-Command", $fullCommand | Out-Null
 }
 
 Write-Step "Starting project from $root"
@@ -47,11 +41,13 @@ if ($dockerCommand) {
   Write-Warning "Docker was not found in PATH. If your database runs in Docker, start Docker Desktop and the ndt-postgres container first."
 }
 
-Write-Step "Opening backend"
-Start-TerminalWindow "NDT Backend" $backendPath "npm run dev"
-
-Write-Step "Opening frontend"
-Start-TerminalWindow "NDT Frontend" $frontendPath "npm run dev"
+Write-Step "Starting backend and frontend in one terminal"
+& $concurrentlyPath `
+  "--names" "backend,frontend" `
+  "--prefix-colors" "cyan,magenta" `
+  "--kill-others-on-fail" `
+  "cd /d $backendPath && npm run dev" `
+  "cd /d $frontendPath && npm run dev"
 
 Write-Host ""
 Write-Host "Done." -ForegroundColor Green

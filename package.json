@@ -3,5 +3,8 @@
   "private": true,
   "scripts": {
     "dev": "powershell -ExecutionPolicy Bypass -File ./scripts/start-dev.ps1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }

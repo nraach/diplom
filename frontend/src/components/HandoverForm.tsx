@@ -3,9 +3,14 @@ import { FormEvent, useState } from "react";
 type HandoverFormProps = {
   disabled?: boolean;
   onSubmit: (comment: string | null) => Promise<unknown>;
+  submitLabel?: string;
 };
 
-export function HandoverForm({ disabled = false, onSubmit }: HandoverFormProps) {
+export function HandoverForm({
+  disabled = false,
+  onSubmit,
+  submitLabel = "Подтвердить передачу"
+}: HandoverFormProps) {
   const [comment, setComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -44,7 +49,7 @@ export function HandoverForm({ disabled = false, onSubmit }: HandoverFormProps) 
 
       <div className="form-actions form-actions-end">
         <button type="submit" disabled={disabled || isSubmitting}>
-          {isSubmitting ? "Сохранение..." : "Подтвердить передачу"}
+          {isSubmitting ? "Сохранение..." : submitLabel}
         </button>
       </div>
     </form>

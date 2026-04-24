@@ -11,6 +11,29 @@ const deviceStatusByCycleType = {
   calibration: "in_calibration"
 } satisfies Record<string, DeviceStatus>;
 
+function getDeviceStatusAfterCycleUpdate(
+  nextStatus: ServiceCycleStatus | undefined,
+  cycleType: keyof typeof deviceStatusByCycleType
+): DeviceStatus | null {
+  if (!nextStatus) {
+    return null;
+  }
+
+  if (nextStatus === "ready_for_handover") {
+    return "ready_for_handover";
+  }
+
+  if (nextStatus === "cancelled") {
+    return null;
+  }
+
+  if (nextStatus === "handed_over") {
+    return "handed_over";
+  }
+
+  return deviceStatusByCycleType[cycleType];
+}
+
 export const cyclesService = {
   list() {
     return listCycles();
@@ -87,6 +110,16 @@ export const cyclesService = {
       data.readyForHandover = true;
     }
 
+    if (cycle.status === "handed_over" && input.status) {
+      data.handedOverAt = null;
+      data.handedOverBy = { disconnect: true };
+      data.closedAt = null;
+
+      if (input.status !== "ready_for_handover" && input.readyForHandover === undefined) {
+        data.readyForHandover = false;
+      }
+    }
+
     const updatedCycle = await prisma.$transaction(async (tx) => {
       const result = await tx.serviceCycle.update({
         where: { id },
@@ -94,10 +127,12 @@ export const cyclesService = {
         include: cycleInclude
       });
 
-      if (input.status === "ready_for_handover") {
+      const nextDeviceStatus = getDeviceStatusAfterCycleUpdate(input.status, cycle.type);
+
+      if (nextDeviceStatus) {
         await tx.device.update({
           where: { id: cycle.deviceId },
-          data: { currentStatus: "ready_for_handover" }
+          data: { currentStatus: nextDeviceStatus }
         });
       }
 
