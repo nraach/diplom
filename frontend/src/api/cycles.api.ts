@@ -25,5 +25,11 @@ export const cyclesApi = {
       method: "PATCH",
       body: JSON.stringify(input)
     });
+  },
+
+  remove(id: string) {
+    return apiRequest<void>(`/cycles/${id}`, {
+      method: "DELETE"
+    });
   }
 };

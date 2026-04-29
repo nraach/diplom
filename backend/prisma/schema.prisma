@@ -62,17 +62,17 @@ model User {
 }
 
 model Device {
-  id             String         @id @default(cuid())
-  serialNumber   String         @unique
-  name           String
-  category       String?
-  photoUrl       String?
-  description    String?
-  currentStatus  DeviceStatus   @default(active)
-  isWrittenOff   Boolean        @default(false)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  serviceCycles  ServiceCycle[]
+  id            String         @id @default(cuid())
+  serialNumber  String         @unique
+  name          String
+  category      String?
+  photoUrl      String?
+  description   String?
+  currentStatus DeviceStatus   @default(active)
+  isWrittenOff  Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  serviceCycles ServiceCycle[]
 
   @@map("devices")
 }
@@ -83,12 +83,22 @@ model ServiceCycle {
   device             Device             @relation(fields: [deviceId], references: [id])
   type               ServiceCycleType
   status             ServiceCycleStatus @default(created)
+  receivedAt         DateTime           @default(now())
+  checkedAt          DateTime?
   sopCheck           Boolean?
+  sopCheckedAt       DateTime?
   depotCheck         Boolean?
+  depotCheckedAt     DateTime?
   readyForHandover   Boolean            @default(false)
   handedOverAt       DateTime?
   handedOverByUserId String?
   handedOverBy       User?              @relation("CycleHandover", fields: [handedOverByUserId], references: [id])
+  diagnosis          String?
+  workPerformed      String?
+  serviceNotes       String?
+  depotName          String?
+  equipmentNotes     String?
+  finalConclusion    String?
   comment            String?
   createdByUserId    String
   createdBy          User               @relation("CycleCreator", fields: [createdByUserId], references: [id])

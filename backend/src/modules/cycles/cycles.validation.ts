@@ -1,8 +1,36 @@
 import { z } from "zod";
 
+const optionalTextField = z.preprocess((value) => {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}, z.string().optional().nullable());
+
+const optionalDateField = z.preprocess((value) => {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}, z.string().optional().nullable());
+
 export const createCycleSchema = z.object({
   deviceId: z.string().min(1),
   type: z.enum(["repair", "calibration"]),
+  receivedAt: optionalDateField,
+  checkedAt: optionalDateField,
+  sopCheckedAt: optionalDateField,
+  diagnosis: optionalTextField,
+  workPerformed: optionalTextField,
+  serviceNotes: optionalTextField,
+  depotName: optionalTextField,
+  depotCheckedAt: optionalDateField,
+  equipmentNotes: optionalTextField,
+  finalConclusion: optionalTextField,
   comment: z.string().optional().nullable()
 });
 
@@ -23,6 +51,16 @@ export const updateCycleSchema = z.object({
   sopCheck: z.boolean().optional().nullable(),
   depotCheck: z.boolean().optional().nullable(),
   readyForHandover: z.boolean().optional(),
+  receivedAt: optionalDateField,
+  checkedAt: optionalDateField,
+  sopCheckedAt: optionalDateField,
+  depotCheckedAt: optionalDateField,
+  diagnosis: optionalTextField,
+  workPerformed: optionalTextField,
+  serviceNotes: optionalTextField,
+  depotName: optionalTextField,
+  equipmentNotes: optionalTextField,
+  finalConclusion: optionalTextField,
   comment: z.string().optional().nullable()
 });
 

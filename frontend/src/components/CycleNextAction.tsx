@@ -1,4 +1,4 @@
-import { ServiceCycle } from "../types/cycle";
+﻿import { ServiceCycle } from "../types/cycle";
 import { HandoverForm } from "./HandoverForm";
 
 type CycleNextActionProps = {
@@ -89,13 +89,33 @@ function getNextAction(cycle: ServiceCycle) {
     };
   }
 
+  if (cycle.type === "repair" && !hasText(cycle.diagnosis)) {
+    return {
+      kind: "edit" as const,
+      title: "Заполнить диагноз",
+      description: "Для ремонта сначала нужно зафиксировать, что именно сломано или какие симптомы обнаружены.",
+      buttonLabel: "Перейти к диагнозу",
+      hint: "Откроется форма редактирования текущего цикла."
+    };
+  }
+
+  if (cycle.type === "repair" && !hasText(cycle.workPerformed)) {
+    return {
+      kind: "edit" as const,
+      title: "Зафиксировать выполненные работы",
+      description: "Перед дальнейшими проверками лучше явно указать, что уже сделано по прибору.",
+      buttonLabel: "Перейти к работам",
+      hint: "Откроется форма редактирования текущего цикла."
+    };
+  }
+
   if (cycle.sopCheck === null) {
     return {
       kind: "edit" as const,
       title: "Зафиксировать результат SOP",
-      description: "Трекер ждет первую контрольную точку. Открой форму редактирования и отметь итог SOP.",
+      description: "Трекер ждет первую контрольную точку. Отметь итог SOP в карточке цикла.",
       buttonLabel: "Перейти к SOP",
-      hint: "В форме ниже/сверху откроется редактирование текущего цикла."
+      hint: "Откроется форма редактирования текущего цикла."
     };
   }
 
@@ -103,8 +123,38 @@ function getNextAction(cycle: ServiceCycle) {
     return {
       kind: "edit" as const,
       title: "Зафиксировать результат Depot",
-      description: "Следующий этап после SOP — результат depot-проверки. Его лучше явно отметить в цикле.",
+      description: "Следующий этап после SOP — результат Depot-проверки. Его лучше явно отметить в цикле.",
       buttonLabel: "Перейти к Depot",
+      hint: "Откроется форма редактирования текущего цикла."
+    };
+  }
+
+  if (cycle.sopCheck === true && !cycle.sopCheckedAt) {
+    return {
+      kind: "edit" as const,
+      title: "Указать дату SOP",
+      description: "После результата SOP стоит сразу зафиксировать отдельную дату этой проверки в карточке цикла.",
+      buttonLabel: "Перейти к дате SOP",
+      hint: "Откроется форма редактирования текущего цикла."
+    };
+  }
+
+  if (cycle.depotCheck === true && !cycle.depotCheckedAt) {
+    return {
+      kind: "edit" as const,
+      title: "Указать дату Depot",
+      description: "Перед завершением сервисного случая нужно отдельно зафиксировать дату проверки в Depot.",
+      buttonLabel: "Перейти к дате Depot",
+      hint: "Откроется форма редактирования текущего цикла."
+    };
+  }
+
+  if (!hasText(cycle.finalConclusion)) {
+    return {
+      kind: "edit" as const,
+      title: "Заполнить итог",
+      description: "Перед передачей важно кратко зафиксировать итог сервисного случая.",
+      buttonLabel: "Перейти к итогу",
       hint: "Откроется форма редактирования текущего цикла."
     };
   }
@@ -113,7 +163,7 @@ function getNextAction(cycle: ServiceCycle) {
     return {
       kind: "advance" as const,
       title: "Отметить готовность к передаче",
-      description: "Контрольные точки уже заполнены. Теперь цикл можно перевести в состояние готовности к handover.",
+      description: "Ключевые поля уже заполнены. Теперь цикл можно перевести в состояние готовности к handover.",
       buttonLabel: "Готов к передаче",
       payload: {
         status: "ready_for_handover" as const,
@@ -128,4 +178,8 @@ function getNextAction(cycle: ServiceCycle) {
     description: "Цикл дошел до финального этапа. Осталось зафиксировать handover и завершить маршрут прибора.",
     buttonLabel: "Подтвердить передачу"
   };
+}
+
+function hasText(value: string | null) {
+  return Boolean(value?.trim());
 }

@@ -38,6 +38,17 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     throw new ApiError(payload?.message ?? "Не удалось выполнить запрос", response.status, payload?.details);
   }
 
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  const contentLength = response.headers.get("Content-Length");
+  const contentType = response.headers.get("Content-Type");
+
+  if (contentLength === "0" || !contentType?.includes("application/json")) {
+    return undefined as T;
+  }
+
   return response.json() as Promise<T>;
 }
 

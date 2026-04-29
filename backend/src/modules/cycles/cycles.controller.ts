@@ -36,5 +36,14 @@ export const cyclesController = {
     } catch (error) {
       next(error);
     }
+  },
+
+  async remove(req: Request, res: Response, next: NextFunction) {
+    try {
+      await cyclesService.remove(req.params.id, (req as AuthenticatedRequest).user.id);
+      res.status(204).send();
+    } catch (error) {
+      next(error);
+    }
   }
 };

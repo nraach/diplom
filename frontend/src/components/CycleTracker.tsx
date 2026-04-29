@@ -1,4 +1,4 @@
-import { ServiceCycle, ServiceCycleStatus } from "../types/cycle";
+﻿import { ServiceCycle, ServiceCycleStatus } from "../types/cycle";
 import { cycleStatusLabels } from "../utils/status-labels";
 
 type TrackerTone = "completed" | "current" | "upcoming" | "failed" | "cancelled";

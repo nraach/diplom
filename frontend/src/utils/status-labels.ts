@@ -15,10 +15,10 @@ export const deviceStatusLabels: Record<DeviceStatus, string> = {
 export const cycleStatusLabels: Record<ServiceCycleStatus, string> = {
   created: "Создан",
   in_progress: "В работе",
-  sop_passed: "СОП пройден",
-  sop_failed: "СОП не пройден",
-  depot_passed: "Депо пройдено",
-  depot_failed: "Депо не пройдено",
+  sop_passed: "SOP пройден",
+  sop_failed: "SOP не пройден",
+  depot_passed: "Depot пройден",
+  depot_failed: "Depot не пройден",
   ready_for_handover: "Готов к передаче",
   handed_over: "Передан",
   cancelled: "Отменен"

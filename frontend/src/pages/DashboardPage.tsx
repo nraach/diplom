@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+﻿import { useNavigate } from "react-router-dom";
 import { dashboardApi } from "../api/dashboard.api";
 import { StatusBadge } from "../components/StatusBadge";
 import { useAuth } from "../hooks/useAuth";
@@ -113,7 +113,12 @@ export function DashboardPage() {
                     </thead>
                     <tbody>
                       {activeCycles.map((cycle) => (
-                        <tr key={cycle.id}>
+                        <tr
+                          key={cycle.id}
+                          className="dashboard-cycle-row"
+                          onClick={() => navigate(`/devices/${cycle.device?.id ?? cycle.deviceId}`)}
+                          title="Открыть карточку прибора"
+                        >
                           <td className="strong-cell">{cycle.device?.name ?? cycle.deviceId}</td>
                           <td>
                             <StatusBadge label={cycleTypeLabels[cycle.type]} value={cycle.type} />

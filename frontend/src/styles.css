@@ -652,6 +652,57 @@ tbody tr:hover {
   line-height: 1.45;
 }
 
+.cycle-requirements-panel {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.9rem 0.95rem;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(249, 248, 255, 0.95) 0%, rgba(255, 255, 255, 0.98) 100%);
+}
+
+.cycle-requirements-header {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.cycle-requirements-header strong {
+  color: var(--color-text-strong);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.cycle-requirements-header span {
+  color: var(--color-text-muted);
+  font-size: 0.77rem;
+  line-height: 1.45;
+}
+
+.cycle-requirements-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.cycle-requirement-pill {
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 0.42rem 0.65rem;
+}
+
+.cycle-requirement-pill-current {
+  background: #fff4ea;
+  color: #9a5b18;
+}
+
+.cycle-requirement-pill-final {
+  background: #eef2ff;
+  color: #4b4f9d;
+}
+
 .cycle-form-stack {
   display: grid;
   gap: 0.95rem;
@@ -681,12 +732,27 @@ tbody tr:hover {
   line-height: 1.2;
 }
 
-.cycle-form-group-note {
-  max-width: 280px;
-  color: var(--color-text-muted);
-  font-size: 0.75rem;
-  line-height: 1.45;
-  text-align: right;
+
+.field-requirement {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  font-size: 0.69rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-left: 0.45rem;
+  padding: 0.22rem 0.48rem;
+  vertical-align: middle;
+}
+
+.field-requirement-current {
+  background: #fff1e5;
+  color: #a15b12;
+}
+
+.field-requirement-final {
+  background: #eef1ff;
+  color: #4d549f;
 }
 
 .cycle-type-grid,
@@ -758,6 +824,44 @@ tbody tr:hover {
   border: 1px solid var(--color-border);
   border-radius: 12px;
   background: #fbfaff;
+}
+
+.cycle-checks-grid {
+  display: grid;
+  gap: 0.95rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.cycle-check-card {
+  display: grid;
+  gap: 0.9rem;
+  padding: 0.95rem;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(248, 247, 255, 0.96) 0%, rgba(255, 255, 255, 0.98) 100%);
+}
+
+.cycle-check-card-header {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.cycle-check-card-header strong {
+  color: var(--color-text-strong);
+  font-size: 0.96rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.cycle-check-card-header span {
+  color: var(--color-text-muted);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.cycle-check-card-body {
+  display: grid;
+  gap: 0.85rem;
 }
 
 .cycle-ready-card {
@@ -1158,8 +1262,8 @@ tbody tr:hover {
 }
 
 .details-list div {
-  background: #faf8ff;
-  border: 1px solid var(--color-border);
+  background: #faf9fe;
+  border: 1px solid #ddd6f4;
   border-radius: 8px;
   display: grid;
   gap: 0.22rem;
@@ -1194,14 +1298,13 @@ tbody tr:hover {
 .active-cycle-card {
   display: grid;
   gap: 1rem;
-  padding: 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background:
-    radial-gradient(circle at top right, rgba(120, 109, 176, 0.11) 0%, rgba(120, 109, 176, 0) 34%),
-    linear-gradient(180deg, rgba(236, 232, 247, 0.72) 0%, rgba(255, 255, 255, 0.96) 42%),
-    var(--color-surface);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
+  padding: 1.1rem;
+  border: 1px solid #ddd5f1;
+  border-radius: 14px;
+  background: var(--color-surface);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    0 8px 20px rgba(76, 67, 118, 0.04);
 }
 
 .active-cycle-header {
@@ -1209,13 +1312,21 @@ tbody tr:hover {
   display: flex;
   gap: 0.9rem;
   justify-content: space-between;
+  padding-bottom: 0.1rem;
+}
+
+.active-cycle-header-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
 }
 
 .active-cycle-header h4,
 .cycle-tracker-header h4 {
   margin: 0;
   color: var(--color-text-strong);
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 700;
 }
 
@@ -1223,23 +1334,29 @@ tbody tr:hover {
   margin-top: 0.15rem;
 }
 
+.active-cycle-details div {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(250, 248, 255, 0.99) 100%);
+  border-color: #ddd5f1;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
 .cycle-tracker {
   display: grid;
   gap: 0.9rem;
   padding: 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border: 1px solid #ddd5f1;
+  border-radius: 12px;
   background:
-    radial-gradient(circle at top left, rgba(122, 112, 177, 0.08) 0%, rgba(122, 112, 177, 0) 28%),
-    linear-gradient(180deg, #fcfbff 0%, #f8f6fd 100%);
+    radial-gradient(circle at top left, rgba(122, 112, 177, 0.05) 0%, rgba(122, 112, 177, 0) 24%),
+    linear-gradient(180deg, rgba(251, 249, 255, 0.98) 0%, rgba(246, 243, 252, 0.98) 100%);
   overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .cycle-tracker-compact {
   gap: 0.75rem;
   padding: 0.85rem 0.9rem;
-  background:
-    linear-gradient(180deg, rgba(245, 242, 252, 0.95) 0%, rgba(250, 248, 255, 0.98) 100%);
 }
 
 .cycle-tracker-cancelled {
@@ -1269,6 +1386,7 @@ tbody tr:hover {
   margin: 0;
   padding: 0;
   display: grid;
+  align-items: stretch;
   gap: 0.8rem;
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }
@@ -1282,13 +1400,15 @@ tbody tr:hover {
 .cycle-tracker-step {
   position: relative;
   display: grid;
+  align-content: start;
   gap: 0.55rem;
+  min-height: 146px;
   min-width: 0;
+  height: 100%;
   padding: 0.85rem 0.8rem 0.78rem;
   border: 1px solid transparent;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.62);
-  backdrop-filter: blur(6px);
   transition:
     transform 0.18s ease,
     border-color 0.18s ease,
@@ -1312,15 +1432,15 @@ tbody tr:hover {
 }
 
 .cycle-tracker-step-completed::after {
-  background: #9ed5b8;
+  background: #93d1ae;
 }
 
 .cycle-tracker-step-current::after {
-  background: linear-gradient(90deg, #6f67a5 0%, var(--color-border-strong) 100%);
+  background: linear-gradient(90deg, #8d85bc 0%, #d7d0ef 100%);
 }
 
 .cycle-tracker-step-failed::after {
-  background: #f0b6b6;
+  background: #efb4b4;
 }
 
 .cycle-tracker-step-cancelled::after {
@@ -1389,16 +1509,16 @@ tbody tr:hover {
 }
 
 .cycle-tracker-step-completed .cycle-tracker-node {
-  border-color: #72b28e;
-  background: #dff1e6;
+  border-color: #73b18c;
+  background: #e6f4eb;
 }
 
 .cycle-tracker-step-current .cycle-tracker-node {
-  border-color: #5d548e;
-  background: #ebe7f9;
+  border-color: #7067a7;
+  background: #f7f4fe;
   box-shadow:
     0 0 0 5px rgba(255, 255, 255, 0.92),
-    0 0 0 9px rgba(93, 84, 142, 0.08);
+    0 0 0 9px rgba(112, 103, 167, 0.08);
   animation: trackerPulse 2.4s ease-in-out infinite;
 }
 
@@ -1422,7 +1542,7 @@ tbody tr:hover {
 }
 
 .cycle-tracker-step-current .cycle-tracker-copy strong {
-  color: #3c3560;
+  color: #494270;
 }
 
 .cycle-tracker-step-failed .cycle-tracker-copy strong {
@@ -1435,25 +1555,25 @@ tbody tr:hover {
 }
 
 .cycle-tracker-step-completed {
-  border-color: #cfe8d8;
-  background: linear-gradient(180deg, rgba(235, 248, 240, 0.96) 0%, rgba(255, 255, 255, 0.96) 100%);
+  border-color: #cae5d5;
+  background: linear-gradient(180deg, rgba(239, 249, 243, 0.98) 0%, rgba(250, 255, 251, 0.98) 100%);
 }
 
 .cycle-tracker-step-current {
-  border-color: #cfc7ec;
+  border-color: #ddd6f2;
   background:
-    linear-gradient(180deg, rgba(239, 235, 251, 0.98) 0%, rgba(255, 255, 255, 0.98) 100%);
-  box-shadow: 0 10px 22px rgba(74, 67, 113, 0.08);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(250, 248, 255, 0.99) 100%);
+  box-shadow: 0 6px 14px rgba(74, 67, 113, 0.04);
 }
 
 .cycle-tracker-step-upcoming {
-  border-color: #ece7f5;
-  background: rgba(255, 255, 255, 0.82);
+  border-color: #e8e2f1;
+  background: rgba(255, 255, 255, 0.88);
 }
 
 .cycle-tracker-step-failed {
-  border-color: #f1c3c3;
-  background: linear-gradient(180deg, rgba(255, 239, 239, 0.98) 0%, rgba(255, 255, 255, 0.98) 100%);
+  border-color: #f0c0c0;
+  background: linear-gradient(180deg, rgba(255, 243, 243, 0.98) 0%, rgba(255, 251, 251, 0.99) 100%);
 }
 
 .cycle-tracker-step-cancelled {
@@ -1462,23 +1582,23 @@ tbody tr:hover {
 }
 
 .cycle-tracker-state-completed {
-  background: #dff1e6;
-  color: #24573b;
+  background: #e2f2e8;
+  color: #2c6543;
 }
 
 .cycle-tracker-state-current {
-  background: #ebe7f9;
-  color: #3c3560;
+  background: #f0ebfb;
+  color: #5a5590;
 }
 
 .cycle-tracker-state-upcoming {
-  background: #edf0f5;
-  color: #5b6976;
+  background: #eef0f4;
+  color: #66717b;
 }
 
 .cycle-tracker-state-failed {
-  background: #ffe1e1;
-  color: #9b2d2d;
+  background: #ffe5e5;
+  color: #a23838;
 }
 
 .cycle-tracker-state-cancelled {
@@ -1514,12 +1634,13 @@ tbody tr:hover {
 .next-action-panel {
   display: grid;
   gap: 1rem;
-  padding: 1rem;
-  border: 1px solid var(--color-border);
+  padding: 1rem 1.05rem;
+  border: 1px solid #ddd5f1;
   border-radius: 12px;
   background:
-    radial-gradient(circle at top left, rgba(120, 109, 176, 0.08) 0%, rgba(120, 109, 176, 0) 28%),
-    linear-gradient(180deg, rgba(248, 246, 253, 0.98) 0%, rgba(255, 255, 255, 0.98) 100%);
+    radial-gradient(circle at top left, rgba(122, 112, 177, 0.05) 0%, rgba(122, 112, 177, 0) 24%),
+    linear-gradient(180deg, rgba(251, 249, 255, 0.98) 0%, rgba(246, 243, 252, 0.98) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
 }
 
 .next-action-header {
@@ -1564,12 +1685,30 @@ tbody tr:hover {
   font-weight: 700;
 }
 
+.dashboard-cycle-row {
+  cursor: pointer;
+}
+
+.dashboard-cycle-row:hover td {
+  background: var(--color-bg-soft);
+}
+
+.dashboard-cycle-row:focus-within td {
+  background: var(--color-bg-soft);
+}
+
 .audit-entity-id {
   color: var(--color-text-muted);
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 0.8rem;
 }
 
+.inline-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
 .danger-ghost {
   color: #9f2525;
 }
@@ -1599,11 +1738,6 @@ tbody tr:hover {
   }
 
   .cycle-tracker-summary {
-    max-width: none;
-    text-align: left;
-  }
-
-  .cycle-form-group-note {
     max-width: none;
     text-align: left;
   }
@@ -1658,7 +1792,8 @@ tbody tr:hover {
   }
 
   .cycle-type-grid,
-  .cycle-check-grid {
+  .cycle-check-grid,
+  .cycle-checks-grid {
     grid-template-columns: 1fr;
   }
 

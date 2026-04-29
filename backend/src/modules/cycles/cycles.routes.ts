@@ -12,3 +12,4 @@ cyclesRoutes.get("/", cyclesController.list);
 cyclesRoutes.post("/", requireRole("admin", "technical_specialist"), validateBody(createCycleSchema), cyclesController.create);
 cyclesRoutes.patch("/:id", requireRole("admin"), validateBody(updateCycleSchema), cyclesController.update);
 cyclesRoutes.patch("/:id/handover", requireRole("admin"), validateBody(handoverCycleSchema), cyclesController.handover);
+cyclesRoutes.delete("/:id", requireRole("admin"), cyclesController.remove);

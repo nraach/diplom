@@ -1,4 +1,4 @@
-import { DeviceStatus, Prisma, ServiceCycleStatus } from "@prisma/client";
+﻿import { DeviceStatus, Prisma, ServiceCycleStatus } from "@prisma/client";
 import { prisma } from "../../prisma/client";
 import { createAuditLog, toAuditValue } from "../../utils/audit";
 import { isActiveCycleStatus } from "../../utils/cycle-status";
@@ -10,6 +10,44 @@ const deviceStatusByCycleType = {
   repair: "in_repair",
   calibration: "in_calibration"
 } satisfies Record<string, DeviceStatus>;
+
+type CycleEntity = NonNullable<Awaited<ReturnType<typeof findCycleById>>>;
+
+function hasText(value: string | null | undefined) {
+  return Boolean(value?.trim());
+}
+
+function normalizeOptionalText(value: string | null | undefined) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const normalized = value?.trim() ?? "";
+  return normalized.length > 0 ? normalized : null;
+}
+
+function parseOptionalDate(value: string | null | undefined, fieldLabel: string) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+
+  if (Number.isNaN(parsed.getTime())) {
+    throw new AppError(400, `Некорректная дата в поле "${fieldLabel}"`);
+  }
+
+  return parsed;
+}
+
+function parseOptionalRequiredDate(value: string | null | undefined, fieldLabel: string) {
+  const parsed = parseOptionalDate(value, fieldLabel);
+  return parsed === null ? undefined : parsed;
+}
 
 function getDeviceStatusAfterCycleUpdate(
   nextStatus: ServiceCycleStatus | undefined,
@@ -34,6 +72,154 @@ function getDeviceStatusAfterCycleUpdate(
   return deviceStatusByCycleType[cycleType];
 }
 
+async function getDeviceStatusAfterCycleDelete(tx: Prisma.TransactionClient, cycle: CycleEntity): Promise<DeviceStatus> {
+  const remainingActiveCycle = await tx.serviceCycle.findFirst({
+    where: {
+      deviceId: cycle.deviceId,
+      id: { not: cycle.id },
+      status: { notIn: ["handed_over", "cancelled"] }
+    },
+    orderBy: { createdAt: "desc" }
+  });
+
+  if (remainingActiveCycle) {
+    return getDeviceStatusAfterCycleUpdate(remainingActiveCycle.status, remainingActiveCycle.type) ?? "active";
+  }
+
+  const latestArchivedCycle = await tx.serviceCycle.findFirst({
+    where: {
+      deviceId: cycle.deviceId,
+      id: { not: cycle.id }
+    },
+    orderBy: { createdAt: "desc" }
+  });
+
+  if (!latestArchivedCycle) {
+    return "active";
+  }
+
+  if (latestArchivedCycle.status === "handed_over") {
+    return "handed_over";
+  }
+
+  return "active";
+}
+
+function toIsoString(value: Date | null | undefined) {
+  return value?.toISOString() ?? null;
+}
+
+function getAggregateCheckedAt(values: Array<Date | null | undefined>) {
+  const normalized = values.filter((value): value is Date => Boolean(value));
+
+  if (normalized.length === 0) {
+    return null;
+  }
+
+  return new Date(Math.max(...normalized.map((value) => value.getTime())));
+}
+
+function getMergedCycleState(cycle: CycleEntity, input: UpdateCycleInput | HandoverCycleInput) {
+  return {
+    status: "status" in input && input.status !== undefined ? input.status : cycle.status,
+    sopCheck: "sopCheck" in input && input.sopCheck !== undefined ? input.sopCheck : cycle.sopCheck,
+    depotCheck: "depotCheck" in input && input.depotCheck !== undefined ? input.depotCheck : cycle.depotCheck,
+    readyForHandover:
+      "readyForHandover" in input && input.readyForHandover !== undefined ? input.readyForHandover : cycle.readyForHandover,
+    checkedAt: "checkedAt" in input && input.checkedAt !== undefined ? input.checkedAt : cycle.checkedAt?.toISOString() ?? null,
+    sopCheckedAt:
+      "sopCheckedAt" in input && input.sopCheckedAt !== undefined
+        ? input.sopCheckedAt
+        : toIsoString(cycle.sopCheckedAt) ?? toIsoString(cycle.checkedAt),
+    depotCheckedAt:
+      "depotCheckedAt" in input && input.depotCheckedAt !== undefined
+        ? input.depotCheckedAt
+        : toIsoString(cycle.depotCheckedAt) ?? toIsoString(cycle.checkedAt),
+    diagnosis: "diagnosis" in input && input.diagnosis !== undefined ? input.diagnosis : cycle.diagnosis,
+    workPerformed: "workPerformed" in input && input.workPerformed !== undefined ? input.workPerformed : cycle.workPerformed,
+    finalConclusion:
+      "finalConclusion" in input && input.finalConclusion !== undefined ? input.finalConclusion : cycle.finalConclusion
+  };
+}
+
+function validateRepairDataBeforeChecks(cycle: CycleEntity, input: UpdateCycleInput) {
+  const needsValidation =
+    input.sopCheck !== undefined && input.sopCheck !== null ||
+    input.depotCheck !== undefined && input.depotCheck !== null ||
+    input.status === "sop_passed" ||
+    input.status === "sop_failed" ||
+    input.status === "depot_passed" ||
+    input.status === "depot_failed" ||
+    input.status === "ready_for_handover" ||
+    input.readyForHandover === true;
+
+  if (!needsValidation || cycle.type !== "repair") {
+    return;
+  }
+
+  const nextState = getMergedCycleState(cycle, input);
+
+  if (!hasText(nextState.diagnosis)) {
+    throw new AppError(400, 'Для ремонта сначала заполните поле "Диагноз".');
+  }
+
+  if (!hasText(nextState.workPerformed)) {
+    throw new AppError(400, 'Для ремонта сначала заполните поле "Что сделано".');
+  }
+}
+
+function validateReadyForHandover(cycle: CycleEntity, input: UpdateCycleInput | HandoverCycleInput) {
+  const nextState = getMergedCycleState(cycle, input);
+  const isMovingToReady =
+    ("status" in input && input.status === "ready_for_handover") ||
+    ("readyForHandover" in input && input.readyForHandover === true) ||
+    !("status" in input);
+
+  if (!isMovingToReady) {
+    return;
+  }
+
+  if (cycle.type === "repair" && !hasText(nextState.diagnosis)) {
+    throw new AppError(400, 'Перед завершением ремонта заполните поле "Диагноз".');
+  }
+
+  if (cycle.type === "repair" && !hasText(nextState.workPerformed)) {
+    throw new AppError(400, 'Перед завершением ремонта заполните поле "Что сделано".');
+  }
+
+  if (nextState.sopCheck === null) {
+    throw new AppError(400, "Перед готовностью к передаче зафиксируйте результат SOP.");
+  }
+
+  if (nextState.depotCheck === null) {
+    throw new AppError(400, "Перед готовностью к передаче зафиксируйте результат Depot.");
+  }
+
+  if (nextState.sopCheck === true && !nextState.sopCheckedAt) {
+    throw new AppError(400, 'Перед готовностью к передаче заполните поле "Дата SOP".');
+  }
+
+  if (nextState.depotCheck === true && !nextState.depotCheckedAt) {
+    throw new AppError(400, 'Перед готовностью к передаче заполните поле "Дата Depot".');
+  }
+
+  if (!hasText(nextState.finalConclusion)) {
+    throw new AppError(400, 'Перед готовностью к передаче заполните поле "Итог".');
+  }
+}
+
+function validatePassedCheckDates(cycle: CycleEntity, input: UpdateCycleInput) {
+  const nextState = getMergedCycleState(cycle, input);
+
+  if (nextState.sopCheck === true && !nextState.sopCheckedAt) {
+    throw new AppError(400, 'Если SOP пройдена, заполните поле "Дата SOP".');
+  }
+
+  if (nextState.depotCheck === true && !nextState.depotCheckedAt) {
+    throw new AppError(400, 'Если Depot пройдена, заполните поле "Дата Depot".');
+  }
+}
+
 export const cyclesService = {
   list() {
     return listCycles();
@@ -56,13 +242,28 @@ export const cyclesService = {
       throw new AppError(409, "У прибора уже есть активный сервисный цикл");
     }
 
+    const legacyCheckedAt = parseOptionalDate(input.checkedAt, "checkedAt");
+    const sopCheckedAt = parseOptionalDate(input.sopCheckedAt, "sopCheckedAt");
+    const depotCheckedAt = parseOptionalDate(input.depotCheckedAt, "depotCheckedAt");
+    const aggregateCheckedAt = getAggregateCheckedAt([sopCheckedAt, depotCheckedAt, legacyCheckedAt]);
+
     const cycle = await prisma.$transaction(async (tx) => {
       const createdCycle = await tx.serviceCycle.create({
         data: {
           deviceId: input.deviceId,
           type: input.type,
           status: "created",
-          comment: input.comment,
+          receivedAt: parseOptionalRequiredDate(input.receivedAt, "receivedAt"),
+          checkedAt: aggregateCheckedAt,
+          sopCheckedAt,
+          diagnosis: normalizeOptionalText(input.diagnosis),
+          workPerformed: normalizeOptionalText(input.workPerformed),
+          serviceNotes: normalizeOptionalText(input.serviceNotes),
+          depotName: normalizeOptionalText(input.depotName),
+          depotCheckedAt,
+          equipmentNotes: normalizeOptionalText(input.equipmentNotes),
+          finalConclusion: normalizeOptionalText(input.finalConclusion),
+          comment: normalizeOptionalText(input.comment),
           createdByUserId: actorUserId
         },
         include: cycleInclude
@@ -98,11 +299,34 @@ export const cyclesService = {
       return this.handover(id, {}, actorUserId);
     }
 
+    validateRepairDataBeforeChecks(cycle, input);
+    validatePassedCheckDates(cycle, input);
+    validateReadyForHandover(cycle, input);
+
+    const legacyCheckedAt = parseOptionalDate(input.checkedAt, "checkedAt");
+    const sopCheckedAt = parseOptionalDate(input.sopCheckedAt, "sopCheckedAt");
+    const depotCheckedAt = parseOptionalDate(input.depotCheckedAt, "depotCheckedAt");
+    const aggregateCheckedAt = getAggregateCheckedAt([
+      input.sopCheckedAt !== undefined ? sopCheckedAt : cycle.sopCheckedAt,
+      input.depotCheckedAt !== undefined ? depotCheckedAt : cycle.depotCheckedAt,
+      input.checkedAt !== undefined ? legacyCheckedAt : cycle.checkedAt
+    ]);
+
     const data: Prisma.ServiceCycleUpdateInput = {
       sopCheck: input.sopCheck,
       depotCheck: input.depotCheck,
       readyForHandover: input.readyForHandover,
-      comment: input.comment,
+      receivedAt: parseOptionalRequiredDate(input.receivedAt, "receivedAt"),
+      checkedAt: aggregateCheckedAt,
+      sopCheckedAt,
+      diagnosis: normalizeOptionalText(input.diagnosis),
+      workPerformed: normalizeOptionalText(input.workPerformed),
+      serviceNotes: normalizeOptionalText(input.serviceNotes),
+      depotName: normalizeOptionalText(input.depotName),
+      depotCheckedAt,
+      equipmentNotes: normalizeOptionalText(input.equipmentNotes),
+      finalConclusion: normalizeOptionalText(input.finalConclusion),
+      comment: normalizeOptionalText(input.comment),
       status: input.status
     };
 
@@ -163,6 +387,12 @@ export const cyclesService = {
       throw new AppError(400, "Передача разрешена только для активного сервисного цикла");
     }
 
+    if (!cycle.readyForHandover && cycle.status !== "ready_for_handover") {
+      throw new AppError(400, "Перед handover сначала отметьте цикл как готовый к передаче.");
+    }
+
+    validateReadyForHandover(cycle, input);
+
     const now = new Date();
     const updatedCycle = await prisma.$transaction(async (tx) => {
       const result = await tx.serviceCycle.update({
@@ -173,7 +403,7 @@ export const cyclesService = {
           handedOverAt: now,
           handedOverByUserId: actorUserId,
           closedAt: now,
-          comment: input.comment ?? cycle.comment
+          comment: normalizeOptionalText(input.comment) ?? cycle.comment
         },
         include: cycleInclude
       });
@@ -196,5 +426,36 @@ export const cyclesService = {
     });
 
     return updatedCycle;
+  },
+
+  async remove(id: string, actorUserId: string) {
+    const cycle = await findCycleById(id);
+
+    if (!cycle) {
+      throw new AppError(404, "Сервисный цикл не найден");
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const nextDeviceStatus = await getDeviceStatusAfterCycleDelete(tx, cycle);
+
+      await tx.serviceCycle.delete({
+        where: { id }
+      });
+
+      await tx.device.update({
+        where: { id: cycle.deviceId },
+        data: {
+          currentStatus: nextDeviceStatus
+        }
+      });
+    });
+
+    await createAuditLog({
+      userId: actorUserId,
+      entityType: "service_cycle",
+      entityId: id,
+      action: "delete_cycle",
+      oldValue: toAuditValue(cycle)
+    });
   }
 };
