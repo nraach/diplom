@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FloatingToast } from "./FloatingToast";
 import { CreateCycleInput, ServiceCycle, ServiceCycleStatus, ServiceCycleType, UpdateCycleInput } from "../types/cycle";
 import { cycleStatusLabels, cycleTypeLabels } from "../utils/status-labels";
 
@@ -232,7 +233,7 @@ export function CycleForm({ deviceId, cycle, submitLabel, onSubmit, initialTarge
             </div>
           </div>
 
-          {localError ? <p className="error-text">{localError}</p> : null}
+          {localError ? <FloatingToast message={localError} variant="error" durationMs={4200} onDismiss={() => setLocalError(null)} /> : null}
 
           <div className="cycle-form-stack">
             <section className="cycle-form-group">

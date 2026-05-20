@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { FloatingToast } from "../components/FloatingToast";
 import { usersApi } from "../api/users.api";
 import { StatusBadge } from "../components/StatusBadge";
 import { usePollingQuery } from "../hooks/usePollingQuery";
@@ -9,12 +10,12 @@ import { userRoleLabels, userStatusLabels } from "../utils/status-labels";
 export function UsersPage() {
   const queryClient = useQueryClient();
   const usersQuery = usePollingQuery({ queryKey: ["users"], queryFn: usersApi.list });
-  const [successMessage, setSuccessMessage] = useState("");
+  const [successToast, setSuccessToast] = useState<{ id: number; message: string } | null>(null);
 
   const approveMutation = useMutation({
     mutationFn: usersApi.approve,
     onSuccess() {
-      setSuccessMessage("Пользователь одобрен.");
+      setSuccessToast({ id: Date.now(), message: "Пользователь одобрен." });
       invalidateUsers();
     }
   });
@@ -22,7 +23,7 @@ export function UsersPage() {
   const blockMutation = useMutation({
     mutationFn: usersApi.block,
     onSuccess() {
-      setSuccessMessage("Пользователь заблокирован.");
+      setSuccessToast({ id: Date.now(), message: "Пользователь заблокирован." });
       invalidateUsers();
     }
   });
@@ -30,7 +31,7 @@ export function UsersPage() {
   const roleMutation = useMutation({
     mutationFn: ({ id, role }: { id: string; role: UserRole }) => usersApi.changeRole(id, role),
     onSuccess() {
-      setSuccessMessage("Роль пользователя изменена.");
+      setSuccessToast({ id: Date.now(), message: "Роль пользователя изменена." });
       invalidateUsers();
     }
   });
@@ -50,11 +51,47 @@ export function UsersPage() {
         </div>
       </header>
 
+      {successToast ? (
+        <FloatingToast key={successToast.id} message={successToast.message} onDismiss={() => setSuccessToast(null)} />
+      ) : null}
+
+      {approveMutation.error ? (
+        <FloatingToast
+          key={`users-approve-${approveMutation.error.message}`}
+          message={approveMutation.error.message}
+          variant="error"
+          durationMs={4200}
+          index={1}
+          onDismiss={() => approveMutation.reset()}
+        />
+      ) : null}
+
+      {blockMutation.error ? (
+        <FloatingToast
+          key={`users-block-${blockMutation.error.message}`}
+          message={blockMutation.error.message}
+          variant="error"
+          durationMs={4200}
+          index={2}
+          onDismiss={() => blockMutation.reset()}
+        />
+      ) : null}
+
+      {roleMutation.error ? (
+        <FloatingToast
+          key={`users-role-${roleMutation.error.message}`}
+          message={roleMutation.error.message}
+          variant="error"
+          durationMs={4200}
+          index={3}
+          onDismiss={() => roleMutation.reset()}
+        />
+      ) : null}
+
       <section className="panel">
         <div className="panel-heading">
           <h3>Список пользователей</h3>
         </div>
-        {successMessage ? <p className="success-text">{successMessage}</p> : null}
         {usersQuery.isLoading ? <p className="muted-text">Загрузка пользователей...</p> : null}
         {!usersQuery.isLoading && users.length === 0 ? <p className="muted-text">Нет данных.</p> : null}
         {users.length > 0 ? (
@@ -87,9 +124,6 @@ export function UsersPage() {
             </table>
           </div>
         ) : null}
-        {approveMutation.error ? <p className="error-text">{approveMutation.error.message}</p> : null}
-        {blockMutation.error ? <p className="error-text">{blockMutation.error.message}</p> : null}
-        {roleMutation.error ? <p className="error-text">{roleMutation.error.message}</p> : null}
       </section>
     </div>
   );

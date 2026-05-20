@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { authApi } from "../api/auth.api";
 import { ApiError } from "../api/client";
+import { FloatingToast } from "../components/FloatingToast";
 import { useAuth } from "../hooks/useAuth";
 
 export function LoginPage() {
@@ -26,6 +27,16 @@ export function LoginPage() {
 
   return (
     <main className="auth-page">
+      {mutation.error ? (
+        <FloatingToast
+          key={`login-${getErrorMessage(mutation.error)}`}
+          message={getErrorMessage(mutation.error)}
+          variant="error"
+          durationMs={4200}
+          onDismiss={() => mutation.reset()}
+        />
+      ) : null}
+
       <section className="auth-card">
         <div className="auth-intro">
           <p className="eyebrow">Учет NDT-приборов</p>
@@ -55,8 +66,6 @@ export function LoginPage() {
               minLength={6}
             />
           </label>
-
-          {mutation.error ? <p className="error-text">{getErrorMessage(mutation.error)}</p> : null}
 
           <button type="submit" className="button-wide" disabled={mutation.isPending}>
             {mutation.isPending ? "Вход..." : "Войти"}

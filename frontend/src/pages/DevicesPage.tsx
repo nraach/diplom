@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { devicesApi } from "../api/devices.api";
 import { DeviceForm } from "../components/DeviceForm";
+import { FloatingToast } from "../components/FloatingToast";
 import { StatusBadge } from "../components/StatusBadge";
 import { useAuth } from "../hooks/useAuth";
 import { usePollingQuery } from "../hooks/usePollingQuery";
@@ -76,12 +77,12 @@ export function DevicesPage() {
   const [activeFilterKey, setActiveFilterKey] = useState(searchParams.get("filterKey") ?? "");
   const [activeFilterValue, setActiveFilterValue] = useState(searchParams.get("attributeValue") ?? "");
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
-  const [successMessage, setSuccessMessage] = useState("");
+  const [successToast, setSuccessToast] = useState<{ id: number; message: string } | null>(null);
 
   const createMutation = useMutation({
     mutationFn: devicesApi.create,
     onSuccess() {
-      setSuccessMessage("Прибор добавлен.");
+      setSuccessToast({ id: Date.now(), message: "Прибор добавлен." });
       setIsCreateOpen(false);
       void queryClient.invalidateQueries({ queryKey: ["devices"] });
     }
@@ -90,7 +91,7 @@ export function DevicesPage() {
   const updateMutation = useMutation({
     mutationFn: ({ id, input }: { id: string; input: Parameters<typeof devicesApi.update>[1] }) => devicesApi.update(id, input),
     onSuccess() {
-      setSuccessMessage("Прибор сохранен.");
+      setSuccessToast({ id: Date.now(), message: "Прибор сохранен." });
       setEditingDevice(null);
       void queryClient.invalidateQueries({ queryKey: ["devices"] });
     }
@@ -197,7 +198,42 @@ export function DevicesPage() {
         </div>
       </header>
 
-      {successMessage ? <p className="success-text">{successMessage}</p> : null}
+      {successToast ? (
+        <FloatingToast key={successToast.id} message={successToast.message} onDismiss={() => setSuccessToast(null)} />
+      ) : null}
+
+      {uploadPhotoMutation.error ? (
+        <FloatingToast
+          key={`devices-upload-${uploadPhotoMutation.error.message}`}
+          message={uploadPhotoMutation.error.message}
+          variant="error"
+          durationMs={4200}
+          index={1}
+          onDismiss={() => uploadPhotoMutation.reset()}
+        />
+      ) : null}
+
+      {createMutation.error ? (
+        <FloatingToast
+          key={`devices-create-${createMutation.error.message}`}
+          message={createMutation.error.message}
+          variant="error"
+          durationMs={4200}
+          index={2}
+          onDismiss={() => createMutation.reset()}
+        />
+      ) : null}
+
+      {updateMutation.error ? (
+        <FloatingToast
+          key={`devices-update-${updateMutation.error.message}`}
+          message={updateMutation.error.message}
+          variant="error"
+          durationMs={4200}
+          index={3}
+          onDismiss={() => updateMutation.reset()}
+        />
+      ) : null}
 
       <section className="panel">
         <div className="panel-heading">
@@ -278,8 +314,6 @@ export function DevicesPage() {
             }}
           />
 
-          {uploadPhotoMutation.error ? <p className="error-text">{uploadPhotoMutation.error.message}</p> : null}
-          {createMutation.error ? <p className="error-text">{createMutation.error.message}</p> : null}
         </section>
       ) : null}
 
@@ -310,8 +344,6 @@ export function DevicesPage() {
             }}
           />
 
-          {uploadPhotoMutation.error ? <p className="error-text">{uploadPhotoMutation.error.message}</p> : null}
-          {updateMutation.error ? <p className="error-text">{updateMutation.error.message}</p> : null}
         </section>
       ) : null}
 

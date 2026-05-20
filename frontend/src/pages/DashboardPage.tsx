@@ -1,5 +1,6 @@
-﻿import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { dashboardApi } from "../api/dashboard.api";
+import { FloatingToast } from "../components/FloatingToast";
 import { StatusBadge } from "../components/StatusBadge";
 import { useAuth } from "../hooks/useAuth";
 import { usePollingQuery } from "../hooks/usePollingQuery";
@@ -39,7 +40,15 @@ export function DashboardPage() {
       </header>
 
       {dashboardQuery.isLoading ? <section className="panel muted-panel">Загрузка сводки...</section> : null}
-      {dashboardQuery.error ? <section className="panel error-text">{dashboardQuery.error.message}</section> : null}
+      {dashboardQuery.error ? (
+        <FloatingToast
+          key={`dashboard-${dashboardQuery.error.message}`}
+          message={dashboardQuery.error.message}
+          variant="error"
+          durationMs={4200}
+          onDismiss={() => void dashboardQuery.refetch()}
+        />
+      ) : null}
 
       <section className="metrics-grid dashboard-metrics">
         <Metric label="Всего приборов" value={summary.totalDevices} onClick={() => navigate("/devices")} />

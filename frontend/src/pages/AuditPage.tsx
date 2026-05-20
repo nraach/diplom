@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { auditApi } from "../api/audit.api";
+import { FloatingToast } from "../components/FloatingToast";
 import { usePollingQuery } from "../hooks/usePollingQuery";
 import { auditActionLabels, entityTypeLabels } from "../utils/status-labels";
 
@@ -102,7 +103,15 @@ export function AuditPage() {
       </header>
 
       {auditQuery.isLoading ? <section className="panel muted-panel">Загрузка журнала аудита...</section> : null}
-      {auditQuery.error ? <section className="panel error-text">{auditQuery.error.message}</section> : null}
+      {auditQuery.error ? (
+        <FloatingToast
+          key={`audit-${auditQuery.error.message}`}
+          message={auditQuery.error.message}
+          variant="error"
+          durationMs={4200}
+          onDismiss={() => void auditQuery.refetch()}
+        />
+      ) : null}
 
       {!auditQuery.isLoading ? (
         <section className="panel">
@@ -222,5 +231,12 @@ export function AuditPage() {
 }
 
 function formatDate(value: string) {
-  return new Date(value).toLocaleString("ru-RU");
+  return new Date(value).toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  });
 }

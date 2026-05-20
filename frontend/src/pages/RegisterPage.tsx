@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { authApi } from "../api/auth.api";
 import { ApiError } from "../api/client";
+import { FloatingToast } from "../components/FloatingToast";
 
 type RegisterFieldName = "fullName" | "email" | "password";
 
@@ -27,6 +28,16 @@ export function RegisterPage() {
 
   return (
     <main className="auth-page">
+      {mutation.error ? (
+        <FloatingToast
+          key={`register-${getErrorMessage(mutation.error)}`}
+          message={getErrorMessage(mutation.error)}
+          variant="error"
+          durationMs={4200}
+          onDismiss={() => mutation.reset()}
+        />
+      ) : null}
+
       <section className="auth-card">
         <div className="auth-intro">
           <p className="eyebrow">Учет NDT-приборов</p>
@@ -79,8 +90,6 @@ export function RegisterPage() {
             />
             {fieldErrors.password ? <span className="field-error">{fieldErrors.password}</span> : null}
           </label>
-
-          {mutation.error ? <p className="error-text">{getErrorMessage(mutation.error)}</p> : null}
 
           <button type="submit" className="button-wide" disabled={mutation.isPending}>
             {mutation.isPending ? "Отправка..." : "Зарегистрироваться"}

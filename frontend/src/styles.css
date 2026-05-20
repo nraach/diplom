@@ -513,6 +513,10 @@ tbody tr:hover {
   transform: translateY(0);
 }
 
+.cycle-editor-panel {
+  animation: panelReveal 0.34s ease both;
+}
+
 .auth-page {
   align-items: center;
   display: grid;
@@ -1015,6 +1019,84 @@ tbody tr:hover {
   line-height: 1.35;
   margin: 0;
   padding: 0.72rem 0.8rem;
+}
+
+.floating-toast {
+  position: fixed;
+  top: var(--toast-offset, 1.15rem);
+  right: 0.5rem;
+  width: min(340px, calc(100vw - 1.5rem));
+  z-index: 1200;
+  pointer-events: none;
+}
+
+.floating-toast-card {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  background: linear-gradient(180deg, rgba(231, 248, 238, 0.98) 0%, rgba(221, 243, 230, 0.98) 100%);
+  border: 1px solid #b7e4cb;
+  border-radius: 12px;
+  box-shadow: 0 18px 36px rgba(33, 87, 58, 0.14);
+  color: #1d6a42;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
+  padding: 0.88rem 1rem;
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease;
+  overflow: hidden;
+}
+
+.floating-toast-error .floating-toast-card {
+  background: linear-gradient(180deg, rgba(255, 241, 241, 0.98) 0%, rgba(255, 232, 232, 0.98) 100%);
+  border-color: #f0c2c2;
+  box-shadow: 0 18px 36px rgba(150, 55, 55, 0.12);
+  color: #b22727;
+}
+
+.floating-toast-visible .floating-toast-card {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.floating-toast-hidden .floating-toast-card {
+  opacity: 0;
+  transform: translateY(-10px) scale(0.98);
+}
+
+.floating-toast-wick {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #3ea66d 0%, #79d09a 100%);
+  transform-origin: left center;
+  animation: toastWickShrink var(--toast-duration, 3200ms) linear forwards;
+}
+
+.floating-toast-error .floating-toast-wick {
+  background: linear-gradient(90deg, #d85c5c 0%, #f29a9a 100%);
+}
+
+.floating-toast-hidden .floating-toast-wick {
+  animation-play-state: paused;
+  opacity: 0;
+}
+
+@keyframes toastWickShrink {
+  from {
+    transform: scaleX(1);
+  }
+
+  to {
+    transform: scaleX(0);
+  }
 }
 
 .muted-panel {
@@ -1822,6 +1904,18 @@ tbody tr:hover {
 
   50% {
     transform: scale(1.08);
+  }
+}
+
+@keyframes panelReveal {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 

@@ -8,6 +8,7 @@ import { CycleEditorTarget, CycleForm } from "../components/CycleForm";
 import { CycleNextAction } from "../components/CycleNextAction";
 import { CycleTracker } from "../components/CycleTracker";
 import { DeviceForm } from "../components/DeviceForm";
+import { FloatingToast } from "../components/FloatingToast";
 import { StatusBadge } from "../components/StatusBadge";
 import { useAuth } from "../hooks/useAuth";
 import { usePollingQuery } from "../hooks/usePollingQuery";
@@ -23,6 +24,7 @@ export function DeviceDetailsPage() {
   const canManageRecords = user?.role === "admin";
   const queryClient = useQueryClient();
   const editCycleSectionRef = useRef<HTMLElement | null>(null);
+  const cycleEditorScrollAnimationRef = useRef<number | null>(null);
   const editDeviceScrollAnchorRef = useRef<HTMLDivElement | null>(null);
   const editDeviceSectionRef = useRef<HTMLElement | null>(null);
   const deviceEditorScrollAnimationRef = useRef<number | null>(null);
@@ -31,7 +33,7 @@ export function DeviceDetailsPage() {
   const [reopenEditorAfterAdvanceCycleId, setReopenEditorAfterAdvanceCycleId] = useState<string | null>(null);
   const [isEditingDevice, setIsEditingDevice] = useState(false);
   const [isCreateCycleOpen, setIsCreateCycleOpen] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
+  const [successToast, setSuccessToast] = useState<{ id: number; message: string } | null>(null);
 
   const deviceQuery = usePollingQuery({
     queryKey: ["device", id],
@@ -47,7 +49,7 @@ export function DeviceDetailsPage() {
     mutationFn: ({ deviceId, input }: { deviceId: string; input: Parameters<typeof devicesApi.update>[1] }) =>
       devicesApi.update(deviceId, input),
     onSuccess() {
-      setSuccessMessage("Прибор сохранен.");
+      setSuccessToast({ id: Date.now(), message: "Прибор сохранен." });
       smoothScrollToTop(540, deviceEditorScrollAnimationRef);
       setIsEditingDevice(false);
       void invalidateDeviceQueries(queryClient, id);
@@ -57,7 +59,7 @@ export function DeviceDetailsPage() {
   const createCycleMutation = useMutation({
     mutationFn: cyclesApi.create,
     onSuccess() {
-      setSuccessMessage("Сервисный цикл создан.");
+      setSuccessToast({ id: Date.now(), message: "Сервисный цикл создан." });
       setIsCreateCycleOpen(false);
       setEditorTarget(null);
       void invalidateDeviceQueries(queryClient, id);
@@ -68,7 +70,7 @@ export function DeviceDetailsPage() {
     mutationFn: ({ cycleId, input }: { cycleId: string; input: Parameters<typeof cyclesApi.update>[1] }) =>
       cyclesApi.update(cycleId, input),
     onSuccess(updatedCycle, variables) {
-      setSuccessMessage("Сервисный цикл сохранен.");
+      setSuccessToast({ id: Date.now(), message: "Сервисный цикл сохранен." });
 
       const shouldKeepEditorOpen =
         (editingCycle?.id === variables.cycleId &&
@@ -79,6 +81,11 @@ export function DeviceDetailsPage() {
       setEditorTarget(shouldKeepEditorOpen ? "diagnosis" : null);
       setReopenEditorAfterAdvanceCycleId(null);
       setEditingCycle(shouldKeepEditorOpen ? updatedCycle : null);
+
+      if (!shouldKeepEditorOpen) {
+        smoothScrollToTop(540, cycleEditorScrollAnimationRef);
+      }
+
       void invalidateDeviceQueries(queryClient, id);
     }
   });
@@ -87,7 +94,7 @@ export function DeviceDetailsPage() {
     mutationFn: ({ cycleId, comment }: { cycleId: string; comment: string | null }) =>
       cyclesApi.handover(cycleId, { comment }),
     onSuccess() {
-      setSuccessMessage("Передача подтверждена.");
+      setSuccessToast({ id: Date.now(), message: "Передача подтверждена." });
       setEditorTarget(null);
       setReopenEditorAfterAdvanceCycleId(null);
       void invalidateDeviceQueries(queryClient, id);
@@ -97,7 +104,7 @@ export function DeviceDetailsPage() {
   const deleteCycleMutation = useMutation({
     mutationFn: cyclesApi.remove,
     onSuccess() {
-      setSuccessMessage("Сервисный цикл удален.");
+      setSuccessToast({ id: Date.now(), message: "Сервисный цикл удален." });
       setEditingCycle(null);
       setEditorTarget(null);
       setReopenEditorAfterAdvanceCycleId(null);
@@ -123,7 +130,23 @@ export function DeviceDetailsPage() {
       return;
     }
 
-    scrollEditorToTarget(editCycleSectionRef.current, editorTarget);
+    let frameId = 0;
+    let nestedFrameId = 0;
+
+    frameId = requestAnimationFrame(() => {
+      nestedFrameId = requestAnimationFrame(() => {
+        if (!editCycleSectionRef.current) {
+          return;
+        }
+
+        scrollEditorToTarget(editCycleSectionRef.current, editorTarget, cycleEditorScrollAnimationRef);
+      });
+    });
+
+    return () => {
+      cancelAnimationFrame(frameId);
+      cancelAnimationFrame(nestedFrameId);
+    };
   }, [editingCycle, editorTarget]);
 
   function openCycleEditor(targetCycle: ServiceCycle, target: CycleEditorTarget = "top") {
@@ -131,7 +154,7 @@ export function DeviceDetailsPage() {
       setEditorTarget(target);
 
       if (editCycleSectionRef.current) {
-        scrollEditorToTarget(editCycleSectionRef.current, target);
+        scrollEditorToTarget(editCycleSectionRef.current, target, cycleEditorScrollAnimationRef);
       }
 
       return;
@@ -169,6 +192,13 @@ export function DeviceDetailsPage() {
     setIsEditingDevice(false);
   }
 
+  function closeCycleEditor() {
+    cancelAnimatedScroll(cycleEditorScrollAnimationRef);
+    smoothScrollToTop(540, cycleEditorScrollAnimationRef);
+    setEditingCycle(null);
+    setEditorTarget(null);
+  }
+
   if (deviceQuery.isLoading) {
     return <div className="panel muted-panel">Загрузка прибора...</div>;
   }
@@ -196,7 +226,64 @@ export function DeviceDetailsPage() {
         </div>
       </header>
 
-      {successMessage ? <p className="success-text">{successMessage}</p> : null}
+      {successToast ? (
+        <FloatingToast key={successToast.id} message={successToast.message} onDismiss={() => setSuccessToast(null)} />
+      ) : null}
+
+      {uploadPhotoMutation.error ? (
+        <FloatingToast
+          key={`upload-${uploadPhotoMutation.error.message}`}
+          message={uploadPhotoMutation.error.message}
+          variant="error"
+          durationMs={4200}
+          index={1}
+          onDismiss={() => uploadPhotoMutation.reset()}
+        />
+      ) : null}
+
+      {updateDeviceMutation.error ? (
+        <FloatingToast
+          key={`device-update-${updateDeviceMutation.error.message}`}
+          message={updateDeviceMutation.error.message}
+          variant="error"
+          durationMs={4200}
+          index={2}
+          onDismiss={() => updateDeviceMutation.reset()}
+        />
+      ) : null}
+
+      {updateCycleMutation.error ? (
+        <FloatingToast
+          key={`cycle-update-${updateCycleMutation.error.message}`}
+          message={updateCycleMutation.error.message}
+          variant="error"
+          durationMs={4200}
+          index={3}
+          onDismiss={() => updateCycleMutation.reset()}
+        />
+      ) : null}
+
+      {createCycleMutation.error ? (
+        <FloatingToast
+          key={`cycle-create-${createCycleMutation.error.message}`}
+          message={createCycleMutation.error.message}
+          variant="error"
+          durationMs={4200}
+          index={4}
+          onDismiss={() => createCycleMutation.reset()}
+        />
+      ) : null}
+
+      {deleteCycleMutation.error ? (
+        <FloatingToast
+          key={`cycle-delete-${deleteCycleMutation.error.message}`}
+          message={deleteCycleMutation.error.message}
+          variant="error"
+          durationMs={4200}
+          index={5}
+          onDismiss={() => deleteCycleMutation.reset()}
+        />
+      ) : null}
 
       {isCycleEditingMode ? (
         <>
@@ -268,17 +355,44 @@ export function DeviceDetailsPage() {
             </section>
           ) : null}
 
+          {canManageRecords ? <div ref={editDeviceScrollAnchorRef} /> : null}
+
+          {canManageRecords ? (
+            <div className={`device-editor-region ${isEditingDevice ? "device-editor-region-open" : ""}`}>
+              <section className="panel" ref={editDeviceSectionRef} aria-hidden={!isEditingDevice}>
+                <div className="panel-heading">
+                  <h3>Редактировать прибор</h3>
+                  <button type="button" className="ghost-button" onClick={closeDeviceEditor}>
+                    Закрыть
+                  </button>
+                </div>
+
+                <DeviceForm
+                  device={device}
+                  submitLabel="Сохранить прибор"
+                  canEditStatus
+                  canEditCustomAttributes
+                  onSubmit={(input) => {
+                    if (input.isWrittenOff && !device.isWrittenOff && !window.confirm("Списать этот прибор?")) {
+                      return Promise.resolve();
+                    }
+
+                    return updateDeviceMutation.mutateAsync({ deviceId: device.id, input });
+                  }}
+                  onUploadPhoto={async (file) => {
+                    const result = await uploadPhotoMutation.mutateAsync(file);
+                    return result.photoUrl;
+                  }}
+                />
+
+              </section>
+            </div>
+          ) : null}
+
           <section className="panel" ref={editCycleSectionRef}>
-            <div className="panel-heading">
+            <div className="panel-heading cycle-editor-panel">
               <h3>Редактировать сервисный цикл</h3>
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={() => {
-                  setEditingCycle(null);
-                  setEditorTarget(null);
-                }}
-              >
+              <button type="button" className="ghost-button" onClick={closeCycleEditor}>
                 Закрыть
               </button>
             </div>
@@ -290,7 +404,6 @@ export function DeviceDetailsPage() {
               onSubmit={(input) => updateCycleMutation.mutateAsync({ cycleId: editingCycle!.id, input })}
             />
 
-            {updateCycleMutation.error ? <p className="error-text">{updateCycleMutation.error.message}</p> : null}
           </section>
         </>
       ) : (
@@ -393,8 +506,6 @@ export function DeviceDetailsPage() {
                   }}
                 />
 
-                {uploadPhotoMutation.error ? <p className="error-text">{uploadPhotoMutation.error.message}</p> : null}
-                {updateDeviceMutation.error ? <p className="error-text">{updateDeviceMutation.error.message}</p> : null}
               </section>
             </div>
           ) : null}
@@ -532,8 +643,6 @@ export function DeviceDetailsPage() {
               <CycleForm deviceId={device.id} submitLabel="Создать цикл" onSubmit={(input) => createCycleMutation.mutateAsync(input)} />
             ) : null}
 
-            {createCycleMutation.error ? <p className="error-text">{createCycleMutation.error.message}</p> : null}
-            {deleteCycleMutation.error ? <p className="error-text">{deleteCycleMutation.error.message}</p> : null}
           </section>
 
           <section className="panel">
@@ -647,29 +756,28 @@ async function invalidateDeviceQueries(queryClient: ReturnType<typeof useQueryCl
   await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
 }
 
-function scrollEditorToTarget(container: HTMLElement, target: CycleEditorTarget | null) {
+function scrollEditorToTarget(
+  container: HTMLElement,
+  target: CycleEditorTarget | null,
+  animationRef: { current: number | null }
+) {
   if (!target || target === "top") {
-    container.scrollIntoView({
-      behavior: "smooth",
-      block: "start"
-    });
+    smoothScrollToElement(container, 16, 540, animationRef);
     return;
   }
 
   const anchor = container.querySelector<HTMLElement>(`[data-cycle-anchor="${target}"]`);
 
   if (!anchor) {
-    container.scrollIntoView({
-      behavior: "smooth",
-      block: "start"
-    });
+    smoothScrollToElement(container, 16, 540, animationRef);
     return;
   }
 
-  anchor.scrollIntoView({
-    behavior: "smooth",
-    block: "center"
-  });
+  const anchorRect = anchor.getBoundingClientRect();
+  const centeredOffset = Math.max((window.innerHeight - anchorRect.height) / 2, 32);
+  const targetY = Math.max(anchorRect.top + window.scrollY - centeredOffset, 0);
+
+  smoothScrollToY(targetY, 540, animationRef);
 
   const focusable = anchor.querySelector<HTMLElement>("textarea, input, select");
   focusable?.focus();
@@ -698,10 +806,14 @@ function smoothScrollToElement(
     return;
   }
 
+  const targetY = Math.max(element.getBoundingClientRect().top + window.scrollY - offset, 0);
+  smoothScrollToY(targetY, durationMs, animationRef);
+}
+
+function smoothScrollToY(targetY: number, durationMs: number, animationRef: { current: number | null }) {
   cancelAnimatedScroll(animationRef);
 
   const startY = window.scrollY;
-  const targetY = Math.max(element.getBoundingClientRect().top + window.scrollY - offset, 0);
   const distance = targetY - startY;
 
   if (Math.abs(distance) < 4) {
