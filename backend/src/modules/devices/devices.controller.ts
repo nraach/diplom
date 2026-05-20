@@ -22,7 +22,16 @@ export const devicesController = {
 
   async create(req: Request, res: Response, next: NextFunction) {
     try {
-      const result = await devicesService.create(req.body, (req as AuthenticatedRequest).user.id);
+      const user = (req as AuthenticatedRequest).user;
+      const input =
+        user.role === "admin"
+          ? req.body
+          : {
+              ...req.body,
+              customAttributes: undefined
+            };
+
+      const result = await devicesService.create(input, user.id);
       res.status(201).json(result);
     } catch (error) {
       next(error);

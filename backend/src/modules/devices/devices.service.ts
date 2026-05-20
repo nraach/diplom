@@ -1,4 +1,5 @@
 import { hasCalibrationWarning } from "../../utils/calibration";
+import { getDeviceWorkflowStatus } from "../../utils/device-workflow-status";
 import { createAuditLog, toAuditValue } from "../../utils/audit";
 import { AppError } from "../../utils/errors";
 import {
@@ -76,11 +77,46 @@ export const devicesService = {
   }
 };
 
-function withCalibrationWarning<T extends { serviceCycles: Parameters<typeof hasCalibrationWarning>[0]; createdAt: Date }>(
+function withCalibrationWarning<
+  T extends {
+    currentStatus: Parameters<typeof getDeviceWorkflowStatus>[0];
+    serviceCycles: Parameters<typeof hasCalibrationWarning>[0];
+    createdAt: Date;
+    customAttributes?: unknown;
+  }
+>(
   device: T
 ) {
   return {
     ...device,
+    customAttributes: normalizeDeviceCustomAttributes(device.customAttributes),
+    currentStatus: getDeviceWorkflowStatus(device.currentStatus, device.serviceCycles),
     needsCalibrationWarning: hasCalibrationWarning(device.serviceCycles, device.createdAt)
   };
+}
+
+function normalizeDeviceCustomAttributes(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") {
+      return [];
+    }
+
+    const label = "label" in entry && typeof entry.label === "string" ? entry.label.trim() : "";
+    const attributeValue = "value" in entry && typeof entry.value === "string" ? entry.value.trim() : "";
+
+    if (!label || !attributeValue) {
+      return [];
+    }
+
+    return [
+      {
+        label,
+        value: attributeValue
+      }
+    ];
+  });
 }

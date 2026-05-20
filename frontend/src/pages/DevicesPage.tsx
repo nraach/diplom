@@ -6,10 +6,63 @@ import { DeviceForm } from "../components/DeviceForm";
 import { StatusBadge } from "../components/StatusBadge";
 import { useAuth } from "../hooks/useAuth";
 import { usePollingQuery } from "../hooks/usePollingQuery";
-import { Device, DeviceStatus } from "../types/device";
+import { Device, DeviceCustomAttribute, DeviceStatus } from "../types/device";
 import { cycleTypeLabels, deviceStatusLabels } from "../utils/status-labels";
 
 type ViewMode = "table" | "cards";
+type BuiltInDeviceFilterKey = "status" | "type" | "ready" | "handover" | "warning";
+type DeviceFilterOption = {
+  key: string;
+  label: string;
+  emptyLabel: string;
+  options: Array<{ value: string; label: string }>;
+  isCustomAttribute?: boolean;
+  attributeLabel?: string;
+};
+
+const builtInDeviceFilterConfigs: Record<
+  BuiltInDeviceFilterKey,
+  {
+    label: string;
+    emptyLabel: string;
+    options: Array<{ value: string; label: string }>;
+  }
+> = {
+  status: {
+    label: "Статусы",
+    emptyLabel: "Все статусы",
+    options: Object.entries(deviceStatusLabels).map(([value, label]) => ({ value, label }))
+  },
+  type: {
+    label: "Типы циклов",
+    emptyLabel: "Все типы циклов",
+    options: Object.entries(cycleTypeLabels).map(([value, label]) => ({ value, label }))
+  },
+  ready: {
+    label: "Готовность",
+    emptyLabel: "Готовность: все",
+    options: [
+      { value: "true", label: "Готов к передаче" },
+      { value: "false", label: "Не готов" }
+    ]
+  },
+  handover: {
+    label: "Передача",
+    emptyLabel: "Передача: все",
+    options: [
+      { value: "true", label: "Передан" },
+      { value: "false", label: "Не передан" }
+    ]
+  },
+  warning: {
+    label: "Калибровка",
+    emptyLabel: "Калибровка: все",
+    options: [
+      { value: "true", label: "Требуется" },
+      { value: "false", label: "В норме" }
+    ]
+  }
+};
 
 export function DevicesPage() {
   const { user } = useAuth();
@@ -20,22 +73,10 @@ export function DevicesPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [query, setQuery] = useState(searchParams.get("q") ?? "");
-  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") ?? "");
-  const [typeFilter, setTypeFilter] = useState(searchParams.get("type") ?? "");
-  const [readyFilter, setReadyFilter] = useState(searchParams.get("ready") ?? "");
-  const [handoverFilter, setHandoverFilter] = useState(searchParams.get("handover") ?? "");
-  const [warningFilter, setWarningFilter] = useState(searchParams.get("warning") ?? "");
+  const [activeFilterKey, setActiveFilterKey] = useState(searchParams.get("filterKey") ?? "");
+  const [activeFilterValue, setActiveFilterValue] = useState(searchParams.get("attributeValue") ?? "");
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   const [successMessage, setSuccessMessage] = useState("");
-
-  useEffect(() => {
-    setQuery(searchParams.get("q") ?? "");
-    setStatusFilter(searchParams.get("status") ?? "");
-    setTypeFilter(searchParams.get("type") ?? "");
-    setReadyFilter(searchParams.get("ready") ?? "");
-    setHandoverFilter(searchParams.get("handover") ?? "");
-    setWarningFilter(searchParams.get("warning") ?? "");
-  }, [searchParams]);
 
   const createMutation = useMutation({
     mutationFn: devicesApi.create,
@@ -60,6 +101,11 @@ export function DevicesPage() {
   });
 
   const devices = devicesQuery.data ?? [];
+  const filterOptions = useMemo(() => buildDeviceFilterOptions(devices), [devices]);
+  const selectedFilterConfig = useMemo(
+    () => filterOptions.find((option) => option.key === activeFilterKey) ?? null,
+    [activeFilterKey, filterOptions]
+  );
   const filteredDevices = useMemo(() => {
     return devices.filter((device) => {
       const normalizedQuery = query.trim().toLowerCase();
@@ -67,44 +113,70 @@ export function DevicesPage() {
         !normalizedQuery ||
         device.serialNumber.toLowerCase().includes(normalizedQuery) ||
         device.name.toLowerCase().includes(normalizedQuery);
-      const matchesStatus = !statusFilter || device.currentStatus === statusFilter;
-      const matchesType = !typeFilter || device.serviceCycles.some((cycle) => cycle.type === typeFilter);
-      const matchesReady =
-        !readyFilter || device.serviceCycles.some((cycle) => String(cycle.readyForHandover) === readyFilter);
-      const matchesHandover =
-        !handoverFilter || device.serviceCycles.some((cycle) => String(cycle.status === "handed_over") === handoverFilter);
-      const matchesWarning = !warningFilter || String(device.needsCalibrationWarning) === warningFilter;
 
-      return matchesQuery && matchesStatus && matchesType && matchesReady && matchesHandover && matchesWarning;
+      if (!selectedFilterConfig || !activeFilterValue) {
+        return matchesQuery;
+      }
+
+      const matchesSelectedFilter = selectedFilterConfig.isCustomAttribute
+        ? device.customAttributes.some(
+            (attribute) =>
+              normalizeText(attribute.label) === normalizeText(selectedFilterConfig.attributeLabel ?? "") &&
+              attribute.value === activeFilterValue
+          )
+        : matchBuiltInDeviceFilter(device, selectedFilterConfig.key as BuiltInDeviceFilterKey, activeFilterValue);
+
+      return matchesQuery && matchesSelectedFilter;
     });
-  }, [devices, handoverFilter, query, readyFilter, statusFilter, typeFilter, warningFilter]);
+  }, [activeFilterValue, devices, query, selectedFilterConfig]);
+
+  useEffect(() => {
+    const nextFilter = getActiveDeviceFilter(searchParams, filterOptions);
+    setQuery(searchParams.get("q") ?? "");
+    setActiveFilterKey(nextFilter.key);
+    setActiveFilterValue(nextFilter.value);
+  }, [filterOptions, searchParams]);
 
   function updateFilters(next: {
     q?: string;
-    status?: string;
-    type?: string;
-    ready?: string;
-    handover?: string;
-    warning?: string;
+    filterKey?: string;
+    filterValue?: string;
   }) {
     const params = new URLSearchParams(searchParams);
+    const nextQuery = next.q ?? query;
+    const nextSelectedKey = next.filterKey ?? activeFilterKey;
+    const nextSelectedValue = next.filterValue ?? activeFilterValue;
+    const nextSelectedFilter = filterOptions.find((option) => option.key === nextSelectedKey) ?? null;
 
-    const entries = {
-      q: next.q ?? query,
-      status: next.status ?? statusFilter,
-      type: next.type ?? typeFilter,
-      ready: next.ready ?? readyFilter,
-      handover: next.handover ?? handoverFilter,
-      warning: next.warning ?? warningFilter
-    };
+    if (nextQuery) {
+      params.set("q", nextQuery);
+    } else {
+      params.delete("q");
+    }
 
-    Object.entries(entries).forEach(([key, value]) => {
-      if (value) {
-        params.set(key, value);
-      } else {
-        params.delete(key);
-      }
+    (Object.keys(builtInDeviceFilterConfigs) as BuiltInDeviceFilterKey[]).forEach((key) => {
+      params.delete(key);
     });
+    params.delete("filterKey");
+    params.delete("attribute");
+    params.delete("attributeValue");
+
+    if (nextSelectedFilter) {
+      params.set("filterKey", nextSelectedFilter.key);
+
+      if (nextSelectedFilter.isCustomAttribute) {
+        params.set("attribute", nextSelectedFilter.attributeLabel ?? "");
+      }
+
+      if (nextSelectedValue) {
+        if (nextSelectedFilter.isCustomAttribute) {
+          params.set("attribute", nextSelectedFilter.attributeLabel ?? "");
+          params.set("attributeValue", nextSelectedValue);
+        } else {
+          params.set(nextSelectedFilter.key, nextSelectedValue);
+        }
+      }
+    }
 
     setSearchParams(params);
   }
@@ -139,6 +211,7 @@ export function DevicesPage() {
             </button>
           </div>
         </div>
+
         <div className="filters filters-extended">
           <input
             placeholder="Поиск по серийному номеру или названию"
@@ -149,71 +222,39 @@ export function DevicesPage() {
               updateFilters({ q: value });
             }}
           />
+
           <select
-            value={statusFilter}
+            value={activeFilterKey}
             onChange={(event) => {
               const value = event.target.value;
-              setStatusFilter(value);
-              updateFilters({ status: value });
+              setActiveFilterKey(value);
+              setActiveFilterValue("");
+              updateFilters({ filterKey: value, filterValue: "" });
             }}
           >
-            <option value="">Все статусы</option>
-            {Object.entries(deviceStatusLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
+            <option value="">Выберите фильтр</option>
+            {filterOptions.map((option) => (
+              <option key={option.key} value={option.key}>
+                {option.label}
               </option>
             ))}
           </select>
+
           <select
-            value={typeFilter}
+            value={activeFilterValue}
+            disabled={!selectedFilterConfig}
             onChange={(event) => {
               const value = event.target.value;
-              setTypeFilter(value);
-              updateFilters({ type: value });
+              setActiveFilterValue(value);
+              updateFilters({ filterKey: activeFilterKey, filterValue: value });
             }}
           >
-            <option value="">Все типы циклов</option>
-            {Object.entries(cycleTypeLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
+            <option value="">{selectedFilterConfig ? selectedFilterConfig.emptyLabel : "Сначала выберите фильтр"}</option>
+            {selectedFilterConfig?.options.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
-          </select>
-          <select
-            value={readyFilter}
-            onChange={(event) => {
-              const value = event.target.value;
-              setReadyFilter(value);
-              updateFilters({ ready: value });
-            }}
-          >
-            <option value="">Готовность: все</option>
-            <option value="true">Готов к передаче</option>
-            <option value="false">Не готов</option>
-          </select>
-          <select
-            value={handoverFilter}
-            onChange={(event) => {
-              const value = event.target.value;
-              setHandoverFilter(value);
-              updateFilters({ handover: value });
-            }}
-          >
-            <option value="">Передача: все</option>
-            <option value="true">Передан</option>
-            <option value="false">Не передан</option>
-          </select>
-          <select
-            value={warningFilter}
-            onChange={(event) => {
-              const value = event.target.value;
-              setWarningFilter(value);
-              updateFilters({ warning: value });
-            }}
-          >
-            <option value="">Калибровка: все</option>
-            <option value="true">Требуется</option>
-            <option value="false">В норме</option>
           </select>
         </div>
       </section>
@@ -226,14 +267,17 @@ export function DevicesPage() {
               Закрыть
             </button>
           </div>
+
           <DeviceForm
             submitLabel="Добавить прибор"
+            canEditCustomAttributes={user?.role === "admin"}
             onSubmit={(input) => createMutation.mutateAsync(input)}
             onUploadPhoto={async (file) => {
               const result = await uploadPhotoMutation.mutateAsync(file);
               return result.photoUrl;
             }}
           />
+
           {uploadPhotoMutation.error ? <p className="error-text">{uploadPhotoMutation.error.message}</p> : null}
           {createMutation.error ? <p className="error-text">{createMutation.error.message}</p> : null}
         </section>
@@ -247,10 +291,12 @@ export function DevicesPage() {
               Закрыть
             </button>
           </div>
+
           <DeviceForm
             device={editingDevice}
             submitLabel="Сохранить прибор"
             canEditStatus
+            canEditCustomAttributes
             onSubmit={(input) => {
               if (input.isWrittenOff && !editingDevice.isWrittenOff && !window.confirm("Списать этот прибор?")) {
                 return Promise.resolve();
@@ -263,6 +309,7 @@ export function DevicesPage() {
               return result.photoUrl;
             }}
           />
+
           {uploadPhotoMutation.error ? <p className="error-text">{uploadPhotoMutation.error.message}</p> : null}
           {updateMutation.error ? <p className="error-text">{updateMutation.error.message}</p> : null}
         </section>
@@ -301,6 +348,7 @@ function DevicesTable({
       <div className="panel-heading">
         <h3>Список приборов</h3>
       </div>
+
       <div className="table-wrap">
         <table>
           <thead>
@@ -358,12 +406,15 @@ function DevicesCards({
             </div>
             <StatusBadge label={deviceStatusLabels[device.currentStatus]} value={device.currentStatus} />
           </div>
+
           <p className="device-card-meta">{device.category ?? "Без категории"}</p>
           <p className="muted-text">{device.description ?? "Описание не задано"}</p>
+
           <div className="status-row">
             {device.needsCalibrationWarning ? <StatusBadge label="Требуется калибровка" value="needs_calibration" /> : null}
             <span>{device.serviceCycles.length} цикл(ов)</span>
           </div>
+
           <div className="card-actions">
             <Link to={`/devices/${device.id}`}>Открыть</Link>
             {canEdit ? (
@@ -376,4 +427,128 @@ function DevicesCards({
       ))}
     </section>
   );
+}
+
+function buildDeviceFilterOptions(devices: Device[]): DeviceFilterOption[] {
+  const builtInOptions: DeviceFilterOption[] = (Object.entries(builtInDeviceFilterConfigs) as Array<
+    [BuiltInDeviceFilterKey, (typeof builtInDeviceFilterConfigs)[BuiltInDeviceFilterKey]]
+  >).map(([key, config]) => ({
+    key,
+    label: config.label,
+    emptyLabel: config.emptyLabel,
+    options: config.options
+  }));
+
+  const attributeValueMap = new Map<string, Set<string>>();
+
+  devices.forEach((device) => {
+    device.customAttributes.forEach((attribute) => {
+      const normalizedLabel = normalizeText(attribute.label);
+
+      if (!normalizedLabel) {
+        return;
+      }
+
+      const currentValues = attributeValueMap.get(normalizedLabel) ?? new Set<string>();
+      currentValues.add(attribute.value);
+      attributeValueMap.set(normalizedLabel, currentValues);
+    });
+  });
+
+  const customAttributeOptions: DeviceFilterOption[] = Array.from(attributeValueMap.entries())
+    .map(([normalizedLabel, values]) => {
+      const originalLabel = findOriginalAttributeLabel(devices, normalizedLabel);
+
+      return {
+        key: `attribute:${normalizedLabel}`,
+        label: originalLabel,
+        emptyLabel: `${originalLabel}: все`,
+        options: Array.from(values)
+          .sort((left, right) => left.localeCompare(right, "ru"))
+          .map((value) => ({ value, label: value })),
+        isCustomAttribute: true,
+        attributeLabel: originalLabel
+      };
+    })
+    .sort((left, right) => left.label.localeCompare(right.label, "ru"));
+
+  return [...builtInOptions, ...customAttributeOptions];
+}
+
+function matchBuiltInDeviceFilter(device: Device, filterKey: BuiltInDeviceFilterKey, filterValue: string) {
+  switch (filterKey) {
+    case "status":
+      return device.currentStatus === filterValue;
+    case "type":
+      return device.serviceCycles.some((cycle) => cycle.type === filterValue);
+    case "ready":
+      return device.serviceCycles.some((cycle) => String(cycle.readyForHandover) === filterValue);
+    case "handover":
+      return device.serviceCycles.some((cycle) => String(cycle.status === "handed_over") === filterValue);
+    case "warning":
+      return String(device.needsCalibrationWarning) === filterValue;
+    default:
+      return true;
+  }
+}
+
+function getActiveDeviceFilter(searchParams: URLSearchParams, filterOptions: DeviceFilterOption[]) {
+  const explicitFilterKey = searchParams.get("filterKey") ?? "";
+
+  if (explicitFilterKey) {
+    const matchingOption = filterOptions.find((option) => option.key === explicitFilterKey);
+
+    if (matchingOption) {
+      if (matchingOption.isCustomAttribute) {
+        return {
+          key: matchingOption.key,
+          value: searchParams.get("attributeValue") ?? ""
+        };
+      }
+
+      return {
+        key: matchingOption.key,
+        value: searchParams.get(matchingOption.key) ?? ""
+      };
+    }
+  }
+
+  for (const key of Object.keys(builtInDeviceFilterConfigs) as BuiltInDeviceFilterKey[]) {
+    const value = searchParams.get(key) ?? "";
+
+    if (value) {
+      return { key, value };
+    }
+  }
+
+  const attributeLabel = searchParams.get("attribute") ?? "";
+  const attributeValue = searchParams.get("attributeValue") ?? "";
+
+  if (attributeLabel && attributeValue) {
+    const matchingOption = filterOptions.find(
+      (option) => option.isCustomAttribute && normalizeText(option.attributeLabel ?? "") === normalizeText(attributeLabel)
+    );
+
+    if (matchingOption) {
+      return { key: matchingOption.key, value: attributeValue };
+    }
+  }
+
+  return { key: "", value: "" };
+}
+
+function findOriginalAttributeLabel(devices: Device[], normalizedLabel: string) {
+  for (const device of devices) {
+    for (const attribute of device.customAttributes) {
+      if (normalizeText(attribute.label) === normalizedLabel) {
+        return attribute.label;
+      }
+    }
+  }
+
+  return normalizedLabel;
+}
+
+function normalizeText(value: string) {
+  return value.trim().toLocaleLowerCase("ru");
 }

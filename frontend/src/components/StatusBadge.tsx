@@ -16,6 +16,14 @@ function getTone(value: string) {
     return "calibration";
   }
 
+  if (value === "sop") {
+    return "warning";
+  }
+
+  if (value === "depot") {
+    return "default";
+  }
+
   if (value === "ready_for_handover") {
     return "ready";
   }

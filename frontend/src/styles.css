@@ -364,7 +364,7 @@ tbody tr:hover {
 
 .page-stack {
   display: grid;
-  gap: 1.15rem;
+  gap: 1rem;
 }
 
 .dashboard-page {
@@ -380,11 +380,35 @@ tbody tr:hover {
 }
 
 .page-header {
+  align-items: center;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
-  box-shadow: 0 8px 18px var(--color-shadow);
-  padding: 1.05rem 1.2rem;
+  border-radius: 10px;
+  box-shadow: 0 6px 16px rgba(43, 35, 69, 0.06);
+  padding: 1rem 1.1rem;
+}
+
+.device-page-header {
+  gap: 1rem;
+  padding: 1.3rem 1.4rem;
+}
+
+.device-page-header .page-header-copy {
+  gap: 0.55rem;
+}
+
+.device-page-header .page-header-actions {
+  justify-content: center;
+}
+
+.device-page-header .page-header-back-link {
+  font-size: 0.95rem;
+}
+
+.page-header-copy {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
 }
 
 .page-header h2,
@@ -394,9 +418,16 @@ tbody tr:hover {
 }
 
 .page-header h2 {
-  font-size: 1.72rem;
+  font-size: 1.64rem;
   font-weight: 900;
-  line-height: 1.02;
+  line-height: 1.04;
+}
+
+.page-header-subtitle {
+  color: #4f4966;
+  font-size: 1rem;
+  line-height: 1.4;
+  margin: 0;
 }
 
 .dashboard-hero {
@@ -408,8 +439,21 @@ tbody tr:hover {
   align-items: flex-end;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.4rem;
   justify-content: flex-start;
+  text-align: right;
+}
+
+.page-header-back-link {
+  align-items: center;
+  display: inline-flex;
+  font-size: 0.95rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.page-header-back-link:hover {
+  color: var(--color-accent-hover);
 }
 
 .muted-text {
@@ -433,20 +477,40 @@ tbody tr:hover {
 .metric-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
-  box-shadow: 0 8px 18px var(--color-shadow);
+  border-radius: 10px;
+  box-shadow: 0 6px 16px rgba(43, 35, 69, 0.06);
 }
 
 .panel {
   display: grid;
-  gap: 1rem;
-  padding: 1.08rem 1.14rem;
+  gap: 0.9rem;
+  padding: 1rem;
 }
 
 .panel h3 {
-  font-size: 0.98rem;
+  font-size: 0.94rem;
   font-weight: 700;
   line-height: 1.2;
+}
+
+.device-editor-region {
+  margin-top: 0;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transform: translateY(-10px);
+  transition:
+    max-height 0.38s ease,
+    opacity 0.24s ease,
+    transform 0.38s ease;
+}
+
+.device-editor-region-open {
+  max-height: 2400px;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
 }
 
 .auth-page {
@@ -527,14 +591,23 @@ tbody tr:hover {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.device-form-grid {
+  align-items: start;
+}
+
 .form-field {
   gap: 0.5rem;
 }
 
 .form-field > span {
+  align-items: center;
   color: #4c4466;
+  display: flex;
+  gap: 0.45rem;
   font-weight: 500;
+  justify-content: space-between;
   line-height: 1.2;
+  min-height: 1.55rem;
 }
 
 .field-error {
@@ -572,6 +645,10 @@ tbody tr:hover {
 
 .form-actions-spread {
   justify-content: space-between;
+}
+
+.device-form-actions {
+  align-items: end;
 }
 
 .form-actions-end {
@@ -627,6 +704,31 @@ tbody tr:hover {
   color: var(--color-text-muted);
   font-size: 0.76rem;
   line-height: 1.4;
+}
+
+.device-form-actions .checkbox-card {
+  min-height: 64px;
+}
+
+.custom-attributes-editor {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.custom-attribute-row {
+  display: grid;
+  align-items: end;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  padding: 0.82rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #faf9fe;
+}
+
+.custom-attribute-remove {
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .cycle-form-intro {
@@ -734,13 +836,15 @@ tbody tr:hover {
 
 
 .field-requirement {
+  flex: 0 0 6.3rem;
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
   font-size: 0.69rem;
   font-weight: 700;
+  justify-content: center;
   line-height: 1;
-  margin-left: 0.45rem;
+  min-width: 6.3rem;
   padding: 0.22rem 0.48rem;
   vertical-align: middle;
 }
@@ -936,14 +1040,14 @@ tbody tr:hover {
 .device-card-grid {
   display: grid;
   gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
 }
 
 .metric-card {
   display: grid;
   gap: 0.3rem;
-  min-height: 94px;
-  padding: 1rem 1rem 0.95rem;
+  min-height: 88px;
+  padding: 0.92rem 0.95rem 0.88rem;
   border-left: 4px solid #a59dbc;
   color: var(--color-text);
 }
@@ -999,6 +1103,35 @@ tbody tr:hover {
 .dashboard-item,
 .dashboard-audit-item {
   min-height: 72px;
+}
+
+.dashboard-item .status-badge {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.42);
+}
+
+.dashboard-item .status-badge-repair {
+  background: #ffd3d6;
+  color: #9d2230;
+}
+
+.dashboard-item .status-badge-calibration {
+  background: #d5e7ff;
+  color: #1c5fa8;
+}
+
+.dashboard-item .status-badge-ready {
+  background: #d3f0de;
+  color: #17613c;
+}
+
+.dashboard-item .status-badge-done {
+  background: #e4e9f0;
+  color: #4b5f73;
+}
+
+.dashboard-item .status-badge-warning {
+  background: #ffe8a6;
+  color: #7e5b00;
 }
 
 .dashboard-control-stack {
@@ -1059,6 +1192,11 @@ tbody tr:hover {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.device-details-grid {
+  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.98fr);
+}
+
 .compact-item {
   border: 1px solid var(--color-border);
   border-radius: 8px;
@@ -1067,6 +1205,30 @@ tbody tr:hover {
   gap: 0.65rem;
   justify-content: space-between;
   padding: 0.82rem 0.9rem;
+}
+
+.compact-item-button {
+  width: 100%;
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.compact-item-button:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: 0 6px 18px rgba(43, 35, 69, 0.08);
+  transform: translateY(-1px);
+}
+
+.compact-item-button:focus-visible {
+  outline: none;
+  border-color: #8a7cc4;
+  box-shadow: 0 0 0 3px rgba(138, 124, 196, 0.16);
 }
 
 .compact-item div {
@@ -1098,24 +1260,27 @@ tbody tr:hover {
 .filters {
   display: grid;
   gap: 0.7rem;
-  grid-template-columns: 2fr repeat(4, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr));
 }
 
 .filters-extended {
-  grid-template-columns: 2fr repeat(5, minmax(130px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr));
 }
 
 .segmented-control {
   background: var(--color-bg-soft);
   border-radius: 8px;
   display: flex;
+  flex-wrap: wrap;
   gap: 0.22rem;
+  justify-content: flex-end;
   padding: 0.22rem;
 }
 
 .segmented-control button {
   background: transparent;
   color: #61597a;
+  flex: 0 0 auto;
   font-size: 0.82rem;
   font-weight: 500;
   padding: 0.48rem 0.72rem;
@@ -1131,8 +1296,9 @@ tbody tr:hover {
 .device-card {
   display: grid;
   align-content: space-between;
-  gap: 0.88rem;
-  padding: 1rem;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.92rem;
 }
 
 .device-card h3 {
@@ -1140,13 +1306,18 @@ tbody tr:hover {
   font-size: 0.98rem;
   font-weight: 700;
   line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .device-card-top {
   align-items: start;
-  display: flex;
+  display: grid;
   gap: 0.8rem;
-  justify-content: space-between;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.device-card-top > div {
+  min-width: 0;
 }
 
 .device-card-meta {
@@ -1155,6 +1326,7 @@ tbody tr:hover {
   font-weight: 500;
   line-height: 1.35;
   margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .status-row,
@@ -1185,10 +1357,10 @@ tbody tr:hover {
   border-radius: 999px;
   color: var(--color-accent-text);
   display: inline-flex;
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 700;
   line-height: 1;
-  padding: 0.28rem 0.58rem;
+  padding: 0.25rem 0.54rem;
   white-space: nowrap;
 }
 
@@ -1225,11 +1397,11 @@ tbody tr:hover {
 
 .device-photo {
   align-items: center;
-  background: var(--color-bg-soft);
+  background: linear-gradient(180deg, #fbfaff 0%, #f6f4fc 100%);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: 10px;
   display: grid;
-  min-height: 280px;
+  min-height: 260px;
   overflow: hidden;
   place-items: center;
 }
@@ -1256,7 +1428,7 @@ tbody tr:hover {
 
 .details-list {
   display: grid;
-  gap: 0.68rem;
+  gap: 0.55rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 0;
 }
@@ -1264,10 +1436,10 @@ tbody tr:hover {
 .details-list div {
   background: #faf9fe;
   border: 1px solid #ddd6f4;
-  border-radius: 8px;
+  border-radius: 10px;
   display: grid;
-  gap: 0.22rem;
-  padding: 0.78rem 0.82rem;
+  gap: 0.18rem;
+  padding: 0.72rem 0.76rem;
 }
 
 .details-list dt {
@@ -1280,14 +1452,45 @@ tbody tr:hover {
 
 .details-list dd {
   margin: 0;
-  font-size: 0.9rem;
-  line-height: 1.45;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.details-list-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.device-attributes-section {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.subsection-heading {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: space-between;
+}
+
+.subsection-heading h4 {
+  margin: 0;
+  color: var(--color-text-strong);
+  font-size: 0.92rem;
+  line-height: 1.2;
+}
+
+.subsection-heading span {
+  color: var(--color-text-muted);
+  font-size: 0.76rem;
+  line-height: 1.4;
 }
 
 .cycle-card {
   display: grid;
-  gap: 0.9rem;
-  padding: 0.98rem;
+  gap: 0.8rem;
+  padding: 0.9rem;
 }
 
 .active-cycle-stack {
@@ -1297,14 +1500,14 @@ tbody tr:hover {
 
 .active-cycle-card {
   display: grid;
-  gap: 1rem;
-  padding: 1.1rem;
+  gap: 0.9rem;
+  padding: 1rem;
   border: 1px solid #ddd5f1;
-  border-radius: 14px;
+  border-radius: 10px;
   background: var(--color-surface);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.82),
-    0 8px 20px rgba(76, 67, 118, 0.04);
+    0 6px 16px rgba(76, 67, 118, 0.04);
 }
 
 .active-cycle-header {
@@ -1332,6 +1535,11 @@ tbody tr:hover {
 
 .active-cycle-details {
   margin-top: 0.15rem;
+}
+
+.device-details-grid > .panel,
+.device-details-grid > .device-photo {
+  height: 100%;
 }
 
 .active-cycle-details div {
@@ -1787,7 +1995,8 @@ tbody tr:hover {
 
   .form-grid,
   .details-list,
-  .cycle-tracker-rail {
+  .cycle-tracker-rail,
+  .custom-attribute-row {
     grid-template-columns: 1fr;
   }
 

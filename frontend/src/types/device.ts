@@ -1,9 +1,16 @@
 import { ServiceCycle } from "./cycle";
 
+export type DeviceCustomAttribute = {
+  label: string;
+  value: string;
+};
+
 export type DeviceStatus =
   | "active"
   | "in_repair"
   | "in_calibration"
+  | "sop"
+  | "depot"
   | "ready_for_handover"
   | "handed_over"
   | "needs_calibration"
@@ -16,6 +23,7 @@ export type Device = {
   category: string | null;
   photoUrl: string | null;
   description: string | null;
+  customAttributes: DeviceCustomAttribute[];
   currentStatus: DeviceStatus;
   isWrittenOff: boolean;
   createdAt: string;
@@ -30,6 +38,7 @@ export type CreateDeviceInput = {
   category?: string | null;
   photoUrl?: string | null;
   description?: string | null;
+  customAttributes?: DeviceCustomAttribute[];
 };
 
 export type UpdateDeviceInput = Partial<CreateDeviceInput> & {

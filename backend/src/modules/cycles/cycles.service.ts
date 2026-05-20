@@ -119,6 +119,46 @@ function getAggregateCheckedAt(values: Array<Date | null | undefined>) {
   return new Date(Math.max(...normalized.map((value) => value.getTime())));
 }
 
+function getDerivedCycleStatus(
+  currentStatus: ServiceCycleStatus,
+  input: UpdateCycleInput,
+  nextState: ReturnType<typeof getMergedCycleState>
+): ServiceCycleStatus {
+  if (currentStatus === "handed_over" || currentStatus === "cancelled") {
+    return input.status ?? currentStatus;
+  }
+
+  if (input.status === "created" || input.status === "in_progress" || input.status === "cancelled") {
+    return input.status;
+  }
+
+  if (input.status === "ready_for_handover" || nextState.readyForHandover) {
+    return "ready_for_handover";
+  }
+
+  if (nextState.depotCheck === true) {
+    return "depot_passed";
+  }
+
+  if (nextState.depotCheck === false) {
+    return "depot_failed";
+  }
+
+  if (nextState.sopCheck === true) {
+    return "sop_passed";
+  }
+
+  if (nextState.sopCheck === false) {
+    return "sop_failed";
+  }
+
+  if (input.status) {
+    return input.status;
+  }
+
+  return currentStatus === "created" ? "created" : "in_progress";
+}
+
 function getMergedCycleState(cycle: CycleEntity, input: UpdateCycleInput | HandoverCycleInput) {
   return {
     status: "status" in input && input.status !== undefined ? input.status : cycle.status,
@@ -130,11 +170,11 @@ function getMergedCycleState(cycle: CycleEntity, input: UpdateCycleInput | Hando
     sopCheckedAt:
       "sopCheckedAt" in input && input.sopCheckedAt !== undefined
         ? input.sopCheckedAt
-        : toIsoString(cycle.sopCheckedAt) ?? toIsoString(cycle.checkedAt),
+        : toIsoString(cycle.sopCheckedAt),
     depotCheckedAt:
       "depotCheckedAt" in input && input.depotCheckedAt !== undefined
         ? input.depotCheckedAt
-        : toIsoString(cycle.depotCheckedAt) ?? toIsoString(cycle.checkedAt),
+        : toIsoString(cycle.depotCheckedAt),
     diagnosis: "diagnosis" in input && input.diagnosis !== undefined ? input.diagnosis : cycle.diagnosis,
     workPerformed: "workPerformed" in input && input.workPerformed !== undefined ? input.workPerformed : cycle.workPerformed,
     finalConclusion:
@@ -220,6 +260,34 @@ function validatePassedCheckDates(cycle: CycleEntity, input: UpdateCycleInput) {
   }
 }
 
+function validateExplicitStatusTransition(cycle: CycleEntity, input: UpdateCycleInput) {
+  if (!input.status) {
+    return;
+  }
+
+  const nextState = getMergedCycleState(cycle, input);
+
+  if (input.status === "sop_passed" && nextState.sopCheck !== true) {
+    throw new AppError(400, 'Для статуса "SOP пройден" укажите результат SOP "Пройдена".');
+  }
+
+  if (input.status === "sop_failed" && nextState.sopCheck !== false) {
+    throw new AppError(400, 'Для статуса "SOP не пройден" укажите результат SOP "Не пройдена".');
+  }
+
+  if ((input.status === "depot_passed" || input.status === "depot_failed") && nextState.sopCheck === null) {
+    throw new AppError(400, "Перед этапом Depot сначала зафиксируйте результат SOP.");
+  }
+
+  if (input.status === "depot_passed" && nextState.depotCheck !== true) {
+    throw new AppError(400, 'Для статуса "Depot пройден" укажите результат Depot "Пройдена".');
+  }
+
+  if (input.status === "depot_failed" && nextState.depotCheck !== false) {
+    throw new AppError(400, 'Для статуса "Depot не пройден" укажите результат Depot "Не пройдена".');
+  }
+}
+
 export const cyclesService = {
   list() {
     return listCycles();
@@ -300,8 +368,11 @@ export const cyclesService = {
     }
 
     validateRepairDataBeforeChecks(cycle, input);
+    validateExplicitStatusTransition(cycle, input);
     validatePassedCheckDates(cycle, input);
     validateReadyForHandover(cycle, input);
+    const nextState = getMergedCycleState(cycle, input);
+    const resolvedStatus = getDerivedCycleStatus(cycle.status, input, nextState);
 
     const legacyCheckedAt = parseOptionalDate(input.checkedAt, "checkedAt");
     const sopCheckedAt = parseOptionalDate(input.sopCheckedAt, "sopCheckedAt");
@@ -327,10 +398,10 @@ export const cyclesService = {
       equipmentNotes: normalizeOptionalText(input.equipmentNotes),
       finalConclusion: normalizeOptionalText(input.finalConclusion),
       comment: normalizeOptionalText(input.comment),
-      status: input.status
+      status: resolvedStatus
     };
 
-    if (input.status === "ready_for_handover") {
+    if (resolvedStatus === "ready_for_handover") {
       data.readyForHandover = true;
     }
 
@@ -351,7 +422,7 @@ export const cyclesService = {
         include: cycleInclude
       });
 
-      const nextDeviceStatus = getDeviceStatusAfterCycleUpdate(input.status, cycle.type);
+      const nextDeviceStatus = getDeviceStatusAfterCycleUpdate(resolvedStatus, cycle.type);
 
       if (nextDeviceStatus) {
         await tx.device.update({

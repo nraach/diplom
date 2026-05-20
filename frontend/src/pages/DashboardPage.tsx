@@ -3,6 +3,7 @@ import { dashboardApi } from "../api/dashboard.api";
 import { StatusBadge } from "../components/StatusBadge";
 import { useAuth } from "../hooks/useAuth";
 import { usePollingQuery } from "../hooks/usePollingQuery";
+import { getCycleDisplayStatus } from "../utils/cycle-display-status";
 import {
   auditActionLabels,
   cycleStatusLabels,
@@ -74,13 +75,19 @@ export function DashboardPage() {
           </div>
           <div className="list-stack dashboard-list">
             {recentDeviceUpdates.map((device) => (
-              <article key={device.id} className="compact-item dashboard-item">
+              <button
+                key={device.id}
+                type="button"
+                className="compact-item compact-item-button dashboard-item"
+                onClick={() => navigate(`/devices/${device.id}`)}
+                title="Открыть карточку прибора"
+              >
                 <div>
                   <strong>{device.name}</strong>
                   <span>{device.serialNumber}</span>
                 </div>
                 <StatusBadge label={deviceStatusLabels[device.currentStatus]} value={device.currentStatus} />
-              </article>
+              </button>
             ))}
             {recentDeviceUpdates.length === 0 ? <p className="muted-text">Изменений приборов пока нет.</p> : null}
           </div>
@@ -124,7 +131,7 @@ export function DashboardPage() {
                             <StatusBadge label={cycleTypeLabels[cycle.type]} value={cycle.type} />
                           </td>
                           <td>
-                            <StatusBadge label={cycleStatusLabels[cycle.status]} value={cycle.status} />
+                            <StatusBadge label={cycleStatusLabels[getCycleDisplayStatus(cycle)]} value={getCycleDisplayStatus(cycle)} />
                           </td>
                           <td>{cycle.createdBy?.fullName ?? "Неизвестно"}</td>
                         </tr>

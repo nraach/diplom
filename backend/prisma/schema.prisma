@@ -68,6 +68,7 @@ model Device {
   category      String?
   photoUrl      String?
   description   String?
+  customAttributes Json?
   currentStatus DeviceStatus   @default(active)
   isWrittenOff  Boolean        @default(false)
   createdAt     DateTime       @default(now())

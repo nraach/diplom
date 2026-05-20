@@ -1,11 +1,17 @@
 import { z } from "zod";
 
+const deviceCustomAttributeSchema = z.object({
+  label: z.string().trim().min(1),
+  value: z.string().trim().min(1)
+});
+
 export const createDeviceSchema = z.object({
   serialNumber: z.string().min(1),
   name: z.string().min(1),
   category: z.string().optional().nullable(),
   photoUrl: z.string().optional().nullable(),
-  description: z.string().optional().nullable()
+  description: z.string().optional().nullable(),
+  customAttributes: z.array(deviceCustomAttributeSchema).max(24).optional()
 });
 
 export const updateDeviceSchema = createDeviceSchema.partial().extend({

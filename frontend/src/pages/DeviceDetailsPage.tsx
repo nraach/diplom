@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { resolveApiUrl } from "../api/client";
 import { cyclesApi } from "../api/cycles.api";
 import { devicesApi } from "../api/devices.api";
-import { CycleForm } from "../components/CycleForm";
+import { CycleEditorTarget, CycleForm } from "../components/CycleForm";
 import { CycleNextAction } from "../components/CycleNextAction";
 import { CycleTracker } from "../components/CycleTracker";
 import { DeviceForm } from "../components/DeviceForm";
@@ -12,6 +12,7 @@ import { StatusBadge } from "../components/StatusBadge";
 import { useAuth } from "../hooks/useAuth";
 import { usePollingQuery } from "../hooks/usePollingQuery";
 import { ServiceCycle } from "../types/cycle";
+import { getCycleDisplayStatus } from "../utils/cycle-display-status";
 import { cycleStatusLabels, cycleTypeLabels, deviceStatusLabels } from "../utils/status-labels";
 import { getCalibrationWarningText } from "../utils/calibration";
 
@@ -22,8 +23,11 @@ export function DeviceDetailsPage() {
   const canManageRecords = user?.role === "admin";
   const queryClient = useQueryClient();
   const editCycleSectionRef = useRef<HTMLElement | null>(null);
+  const editDeviceScrollAnchorRef = useRef<HTMLDivElement | null>(null);
+  const editDeviceSectionRef = useRef<HTMLElement | null>(null);
+  const deviceEditorScrollAnimationRef = useRef<number | null>(null);
   const [editingCycle, setEditingCycle] = useState<ServiceCycle | null>(null);
-  const [shouldFocusDiagnosis, setShouldFocusDiagnosis] = useState(false);
+  const [editorTarget, setEditorTarget] = useState<CycleEditorTarget | null>(null);
   const [reopenEditorAfterAdvanceCycleId, setReopenEditorAfterAdvanceCycleId] = useState<string | null>(null);
   const [isEditingDevice, setIsEditingDevice] = useState(false);
   const [isCreateCycleOpen, setIsCreateCycleOpen] = useState(false);
@@ -44,6 +48,7 @@ export function DeviceDetailsPage() {
       devicesApi.update(deviceId, input),
     onSuccess() {
       setSuccessMessage("Прибор сохранен.");
+      smoothScrollToTop(540, deviceEditorScrollAnimationRef);
       setIsEditingDevice(false);
       void invalidateDeviceQueries(queryClient, id);
     }
@@ -54,7 +59,7 @@ export function DeviceDetailsPage() {
     onSuccess() {
       setSuccessMessage("Сервисный цикл создан.");
       setIsCreateCycleOpen(false);
-      setShouldFocusDiagnosis(false);
+      setEditorTarget(null);
       void invalidateDeviceQueries(queryClient, id);
     }
   });
@@ -71,7 +76,7 @@ export function DeviceDetailsPage() {
           variables.input.status === "in_progress") ||
         (reopenEditorAfterAdvanceCycleId === variables.cycleId && variables.input.status === "in_progress");
 
-      setShouldFocusDiagnosis(shouldKeepEditorOpen);
+      setEditorTarget(shouldKeepEditorOpen ? "diagnosis" : null);
       setReopenEditorAfterAdvanceCycleId(null);
       setEditingCycle(shouldKeepEditorOpen ? updatedCycle : null);
       void invalidateDeviceQueries(queryClient, id);
@@ -83,7 +88,7 @@ export function DeviceDetailsPage() {
       cyclesApi.handover(cycleId, { comment }),
     onSuccess() {
       setSuccessMessage("Передача подтверждена.");
-      setShouldFocusDiagnosis(false);
+      setEditorTarget(null);
       setReopenEditorAfterAdvanceCycleId(null);
       void invalidateDeviceQueries(queryClient, id);
     }
@@ -94,7 +99,7 @@ export function DeviceDetailsPage() {
     onSuccess() {
       setSuccessMessage("Сервисный цикл удален.");
       setEditingCycle(null);
-      setShouldFocusDiagnosis(false);
+      setEditorTarget(null);
       setReopenEditorAfterAdvanceCycleId(null);
       setIsCreateCycleOpen(false);
       void invalidateDeviceQueries(queryClient, id);
@@ -118,44 +123,21 @@ export function DeviceDetailsPage() {
       return;
     }
 
-    editCycleSectionRef.current.scrollIntoView({
-      behavior: "smooth",
-      block: "start"
-    });
-  }, [editingCycle]);
+    scrollEditorToTarget(editCycleSectionRef.current, editorTarget);
+  }, [editingCycle, editorTarget]);
 
-  useEffect(() => {
-    if (!editingCycle || !shouldFocusDiagnosis || !editCycleSectionRef.current) {
-      return;
-    }
-
-    const diagnosisField = editCycleSectionRef.current.querySelector<HTMLTextAreaElement>(
-      'textarea[placeholder="Что сломано, что обнаружили при осмотре, какие симптомы наблюдаются"]'
-    );
-
-    if (!diagnosisField) {
-      return;
-    }
-
-    diagnosisField.scrollIntoView({
-      behavior: "smooth",
-      block: "center"
-    });
-    diagnosisField.focus();
-    setShouldFocusDiagnosis(false);
-  }, [editingCycle, shouldFocusDiagnosis]);
-
-  function openCycleEditor(targetCycle: ServiceCycle) {
+  function openCycleEditor(targetCycle: ServiceCycle, target: CycleEditorTarget = "top") {
     if (editingCycle?.id === targetCycle.id) {
-      setShouldFocusDiagnosis(false);
-      editCycleSectionRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start"
-      });
+      setEditorTarget(target);
+
+      if (editCycleSectionRef.current) {
+        scrollEditorToTarget(editCycleSectionRef.current, target);
+      }
+
       return;
     }
 
-    setShouldFocusDiagnosis(false);
+    setEditorTarget(target);
     setEditingCycle(targetCycle);
   }
 
@@ -173,6 +155,20 @@ export function DeviceDetailsPage() {
     void deleteCycleMutation.mutateAsync(targetCycle.id);
   }
 
+  function openDeviceEditor() {
+    smoothScrollToElement(editDeviceScrollAnchorRef.current, 16, 540, deviceEditorScrollAnimationRef);
+    if (isEditingDevice) {
+      return;
+    }
+
+    setIsEditingDevice(true);
+  }
+
+  function closeDeviceEditor() {
+    cancelAnimatedScroll(deviceEditorScrollAnimationRef);
+    setIsEditingDevice(false);
+  }
+
   if (deviceQuery.isLoading) {
     return <div className="panel muted-panel">Загрузка прибора...</div>;
   }
@@ -188,45 +184,21 @@ export function DeviceDetailsPage() {
 
   return (
     <div className="page-stack">
-      {!isCycleEditingMode ? (
-        <header className="page-header">
-          <div>
-            <p className="eyebrow">{device.serialNumber}</p>
-            <h2>{device.name}</h2>
-            {device.category ? <p>{device.category}</p> : null}
-          </div>
-          <div className="page-header-actions">
-            <div className="status-row">
-              <StatusBadge label={deviceStatusLabels[device.currentStatus]} value={device.currentStatus} />
-              {device.needsCalibrationWarning ? (
-                <StatusBadge label={getCalibrationWarningText(device)} value="needs_calibration" />
-              ) : null}
-            </div>
-            <Link to="/devices">Назад к приборам</Link>
-          </div>
-        </header>
-      ) : null}
+      <header className="page-header device-page-header">
+        <div className="page-header-copy">
+          <p className="eyebrow">{device.serialNumber}</p>
+          <h2>{device.name}</h2>
+        </div>
+        <div className="page-header-actions">
+          <Link to="/devices" className="page-header-back-link">
+            Назад к приборам
+          </Link>
+        </div>
+      </header>
 
       {successMessage ? <p className="success-text">{successMessage}</p> : null}
 
       {isCycleEditingMode ? (
-        <section className="panel" ref={editCycleSectionRef}>
-          <div className="panel-heading">
-            <h3>Редактировать сервисный цикл</h3>
-            <button type="button" className="ghost-button" onClick={() => setEditingCycle(null)}>
-              Закрыть
-            </button>
-          </div>
-
-          <CycleForm
-            cycle={editingCycle!}
-            submitLabel="Сохранить цикл"
-            onSubmit={(input) => updateCycleMutation.mutateAsync({ cycleId: editingCycle!.id, input })}
-          />
-
-          {updateCycleMutation.error ? <p className="error-text">{updateCycleMutation.error.message}</p> : null}
-        </section>
-      ) : (
         <>
           <section className="device-details-grid">
             <div className="device-photo">
@@ -237,7 +209,7 @@ export function DeviceDetailsPage() {
               <div className="panel-heading">
                 <h3>Информация о приборе</h3>
                 {canManageRecords ? (
-                  <button type="button" className="ghost-button" onClick={() => setIsEditingDevice((value) => !value)}>
+                  <button type="button" className="ghost-button" onClick={isEditingDevice ? closeDeviceEditor : openDeviceEditor}>
                     {isEditingDevice ? "Скрыть форму" : "Редактировать"}
                   </button>
                 ) : null}
@@ -272,35 +244,159 @@ export function DeviceDetailsPage() {
             </div>
           </section>
 
-          {isEditingDevice && canManageRecords ? (
+          {device.customAttributes.length > 0 || canManageRecords ? (
             <section className="panel">
               <div className="panel-heading">
-                <h3>Редактировать прибор</h3>
-                <button type="button" className="ghost-button" onClick={() => setIsEditingDevice(false)}>
-                  Закрыть
-                </button>
+                <div className="subsection-heading">
+                  <h3>Дополнительные свойства</h3>
+                  {canManageRecords ? <span>Заполняются администратором в режиме редактирования.</span> : null}
+                </div>
               </div>
 
-              <DeviceForm
-                device={device}
-                submitLabel="Сохранить прибор"
-                canEditStatus
-                onSubmit={(input) => {
-                  if (input.isWrittenOff && !device.isWrittenOff && !window.confirm("Списать этот прибор?")) {
-                    return Promise.resolve();
-                  }
-
-                  return updateDeviceMutation.mutateAsync({ deviceId: device.id, input });
-                }}
-                onUploadPhoto={async (file) => {
-                  const result = await uploadPhotoMutation.mutateAsync(file);
-                  return result.photoUrl;
-                }}
-              />
-
-              {uploadPhotoMutation.error ? <p className="error-text">{uploadPhotoMutation.error.message}</p> : null}
-              {updateDeviceMutation.error ? <p className="error-text">{updateDeviceMutation.error.message}</p> : null}
+              {device.customAttributes.length > 0 ? (
+                <dl className="details-list details-list-single">
+                  {device.customAttributes.map((attribute, index) => (
+                    <div key={`${attribute.label}-${index}`}>
+                      <dt>{attribute.label}</dt>
+                      <dd>{attribute.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : (
+                <p className="muted-text">Дополнительные свойства пока не заданы.</p>
+              )}
             </section>
+          ) : null}
+
+          <section className="panel" ref={editCycleSectionRef}>
+            <div className="panel-heading">
+              <h3>Редактировать сервисный цикл</h3>
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => {
+                  setEditingCycle(null);
+                  setEditorTarget(null);
+                }}
+              >
+                Закрыть
+              </button>
+            </div>
+
+            <CycleForm
+              cycle={editingCycle!}
+              initialTarget={editorTarget}
+              submitLabel="Сохранить цикл"
+              onSubmit={(input) => updateCycleMutation.mutateAsync({ cycleId: editingCycle!.id, input })}
+            />
+
+            {updateCycleMutation.error ? <p className="error-text">{updateCycleMutation.error.message}</p> : null}
+          </section>
+        </>
+      ) : (
+        <>
+          <section className="device-details-grid">
+            <div className="device-photo">
+              {device.photoUrl ? <img src={resolveApiUrl(device.photoUrl)} alt={device.name} /> : <span>Нет фото</span>}
+            </div>
+
+            <div className="panel">
+              <div className="panel-heading">
+                <h3>Информация о приборе</h3>
+                {canManageRecords ? (
+                  <button type="button" className="ghost-button" onClick={isEditingDevice ? closeDeviceEditor : openDeviceEditor}>
+                    {isEditingDevice ? "Скрыть форму" : "Редактировать"}
+                  </button>
+                ) : null}
+              </div>
+
+              <dl className="details-list">
+                <div>
+                  <dt>Статус</dt>
+                  <dd>
+                    <StatusBadge label={deviceStatusLabels[device.currentStatus]} value={device.currentStatus} />
+                  </dd>
+                </div>
+                <div>
+                  <dt>Калибровка</dt>
+                  <dd>
+                    {device.needsCalibrationWarning ? (
+                      <StatusBadge label={getCalibrationWarningText(device)} value="needs_calibration" />
+                    ) : (
+                      getCalibrationWarningText(device)
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Категория</dt>
+                  <dd>{formatOptionalText(device.category)}</dd>
+                </div>
+                <div>
+                  <dt>Описание</dt>
+                  <dd>{formatOptionalText(device.description)}</dd>
+                </div>
+              </dl>
+            </div>
+          </section>
+
+          {device.customAttributes.length > 0 || canManageRecords ? (
+            <section className="panel">
+              <div className="panel-heading">
+                <div className="subsection-heading">
+                  <h3>Дополнительные свойства</h3>
+                  {canManageRecords ? <span>Заполняются администратором в режиме редактирования.</span> : null}
+                </div>
+              </div>
+
+              {device.customAttributes.length > 0 ? (
+                <dl className="details-list details-list-single">
+                  {device.customAttributes.map((attribute, index) => (
+                    <div key={`${attribute.label}-${index}`}>
+                      <dt>{attribute.label}</dt>
+                      <dd>{attribute.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : (
+                <p className="muted-text">Дополнительные свойства пока не заданы.</p>
+              )}
+            </section>
+          ) : null}
+
+          {canManageRecords ? <div ref={editDeviceScrollAnchorRef} /> : null}
+
+          {canManageRecords ? (
+            <div className={`device-editor-region ${isEditingDevice ? "device-editor-region-open" : ""}`}>
+              <section className="panel" ref={editDeviceSectionRef} aria-hidden={!isEditingDevice}>
+                <div className="panel-heading">
+                  <h3>Редактировать прибор</h3>
+                  <button type="button" className="ghost-button" onClick={closeDeviceEditor}>
+                    Закрыть
+                  </button>
+                </div>
+
+                <DeviceForm
+                  device={device}
+                  submitLabel="Сохранить прибор"
+                  canEditStatus
+                  canEditCustomAttributes
+                  onSubmit={(input) => {
+                    if (input.isWrittenOff && !device.isWrittenOff && !window.confirm("Списать этот прибор?")) {
+                      return Promise.resolve();
+                    }
+
+                    return updateDeviceMutation.mutateAsync({ deviceId: device.id, input });
+                  }}
+                  onUploadPhoto={async (file) => {
+                    const result = await uploadPhotoMutation.mutateAsync(file);
+                    return result.photoUrl;
+                  }}
+                />
+
+                {uploadPhotoMutation.error ? <p className="error-text">{uploadPhotoMutation.error.message}</p> : null}
+                {updateDeviceMutation.error ? <p className="error-text">{updateDeviceMutation.error.message}</p> : null}
+              </section>
+            </div>
           ) : null}
 
           <section className="panel">
@@ -323,13 +419,13 @@ export function DeviceDetailsPage() {
                     <div>
                       <p className="eyebrow">Активный цикл · {cycleTypeLabels[activeCycle.type]}</p>
                       <p className="status-row">
-                        <StatusBadge label={cycleStatusLabels[activeCycle.status]} value={activeCycle.status} />
+                        <StatusBadge label={cycleStatusLabels[getCycleDisplayStatus(activeCycle)]} value={getCycleDisplayStatus(activeCycle)} />
                       </p>
                     </div>
 
                     {canManageRecords ? (
                       <div className="inline-actions">
-                        <button type="button" className="ghost-button" onClick={() => openCycleEditor(activeCycle)}>
+                        <button type="button" className="ghost-button" onClick={() => openCycleEditor(activeCycle, "top")}>
                           Редактировать
                         </button>
                         <button
@@ -352,8 +448,12 @@ export function DeviceDetailsPage() {
                       <dd>{formatReceivedAt(activeCycle.receivedAt, activeCycle.createdAt)}</dd>
                     </div>
                     <div>
-                      <dt>Создал</dt>
-                      <dd>{activeCycle.createdBy?.fullName ?? "Неизвестно"}</dd>
+                      <dt>Из депо</dt>
+                      <dd>{formatOptionalText(activeCycle.depotName)}</dd>
+                    </div>
+                    <div>
+                      <dt>Диагноз</dt>
+                      <dd>{formatOptionalText(activeCycle.diagnosis)}</dd>
                     </div>
                     <div>
                       <dt>SOP</dt>
@@ -361,7 +461,7 @@ export function DeviceDetailsPage() {
                     </div>
                     <div>
                       <dt>Дата SOP</dt>
-                      <dd>{formatOptionalDateOnly(activeCycle.sopCheckedAt ?? activeCycle.checkedAt)}</dd>
+                      <dd>{formatOptionalDateOnly(activeCycle.sopCheckedAt)}</dd>
                     </div>
                     <div>
                       <dt>Depot</dt>
@@ -369,15 +469,15 @@ export function DeviceDetailsPage() {
                     </div>
                     <div>
                       <dt>Дата Depot</dt>
-                      <dd>{formatOptionalDateOnly(activeCycle.depotCheckedAt ?? activeCycle.checkedAt)}</dd>
+                      <dd>{formatOptionalDateOnly(activeCycle.depotCheckedAt)}</dd>
                     </div>
                     <div>
                       <dt>Готов к передаче</dt>
                       <dd>{activeCycle.readyForHandover ? "Да" : "Нет"}</dd>
                     </div>
                     <div>
-                      <dt>Диагноз</dt>
-                      <dd>{formatOptionalText(activeCycle.diagnosis)}</dd>
+                      <dt>Создал</dt>
+                      <dd>{activeCycle.createdBy?.fullName ?? "Неизвестно"}</dd>
                     </div>
                     <div>
                       <dt>Что сделано</dt>
@@ -415,7 +515,7 @@ export function DeviceDetailsPage() {
                       setReopenEditorAfterAdvanceCycleId(shouldReopenEditor ? activeCycle.id : null);
                       return updateCycleMutation.mutateAsync({ cycleId: activeCycle.id, input });
                     }}
-                    onOpenEditor={() => openCycleEditor(activeCycle)}
+                    onOpenEditor={(target) => openCycleEditor(activeCycle, target ?? "top")}
                     onHandover={async (comment) => {
                       if (!window.confirm("Подтвердить передачу прибора?")) {
                         return Promise.resolve();
@@ -448,13 +548,13 @@ export function DeviceDetailsPage() {
                     <div>
                       <p className="eyebrow">{cycleTypeLabels[cycle.type]}</p>
                       <h4>
-                        <StatusBadge label={cycleStatusLabels[cycle.status]} value={cycle.status} />
+                        <StatusBadge label={cycleStatusLabels[getCycleDisplayStatus(cycle)]} value={getCycleDisplayStatus(cycle)} />
                       </h4>
                     </div>
 
                     {canManageRecords ? (
                       <div className="inline-actions">
-                        <button type="button" className="ghost-button" onClick={() => openCycleEditor(cycle)}>
+                        <button type="button" className="ghost-button" onClick={() => openCycleEditor(cycle, "top")}>
                           Редактировать
                         </button>
                         <button
@@ -477,12 +577,20 @@ export function DeviceDetailsPage() {
                       <dd>{formatReceivedAt(cycle.receivedAt, cycle.createdAt)}</dd>
                     </div>
                     <div>
+                      <dt>Из депо</dt>
+                      <dd>{formatOptionalText(cycle.depotName)}</dd>
+                    </div>
+                    <div>
+                      <dt>Диагноз</dt>
+                      <dd>{formatOptionalText(cycle.diagnosis)}</dd>
+                    </div>
+                    <div>
                       <dt>SOP</dt>
                       <dd>{formatCheck(cycle.sopCheck)}</dd>
                     </div>
                     <div>
                       <dt>Дата SOP</dt>
-                      <dd>{formatOptionalDateOnly(cycle.sopCheckedAt ?? cycle.checkedAt)}</dd>
+                      <dd>{formatOptionalDateOnly(cycle.sopCheckedAt)}</dd>
                     </div>
                     <div>
                       <dt>Depot</dt>
@@ -490,11 +598,7 @@ export function DeviceDetailsPage() {
                     </div>
                     <div>
                       <dt>Дата Depot</dt>
-                      <dd>{formatOptionalDateOnly(cycle.depotCheckedAt ?? cycle.checkedAt)}</dd>
-                    </div>
-                    <div>
-                      <dt>Диагноз</dt>
-                      <dd>{formatOptionalText(cycle.diagnosis)}</dd>
+                      <dd>{formatOptionalDateOnly(cycle.depotCheckedAt)}</dd>
                     </div>
                     <div>
                       <dt>Что сделано</dt>
@@ -541,6 +645,133 @@ async function invalidateDeviceQueries(queryClient: ReturnType<typeof useQueryCl
   await queryClient.invalidateQueries({ queryKey: ["device", id] });
   await queryClient.invalidateQueries({ queryKey: ["devices"] });
   await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+}
+
+function scrollEditorToTarget(container: HTMLElement, target: CycleEditorTarget | null) {
+  if (!target || target === "top") {
+    container.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+    return;
+  }
+
+  const anchor = container.querySelector<HTMLElement>(`[data-cycle-anchor="${target}"]`);
+
+  if (!anchor) {
+    container.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+    return;
+  }
+
+  anchor.scrollIntoView({
+    behavior: "smooth",
+    block: "center"
+  });
+
+  const focusable = anchor.querySelector<HTMLElement>("textarea, input, select");
+  focusable?.focus();
+}
+
+function scrollToElement(element: HTMLElement | null, offset = 0) {
+  if (!element) {
+    return;
+  }
+
+  const top = Math.max(element.getBoundingClientRect().top + window.scrollY - offset, 0);
+
+  window.scrollTo({
+    top,
+    behavior: "smooth"
+  });
+}
+
+function smoothScrollToElement(
+  element: HTMLElement | null,
+  offset: number,
+  durationMs: number,
+  animationRef: { current: number | null }
+) {
+  if (!element) {
+    return;
+  }
+
+  cancelAnimatedScroll(animationRef);
+
+  const startY = window.scrollY;
+  const targetY = Math.max(element.getBoundingClientRect().top + window.scrollY - offset, 0);
+  const distance = targetY - startY;
+
+  if (Math.abs(distance) < 4) {
+    window.scrollTo({ top: targetY });
+    return;
+  }
+
+  const startTime = performance.now();
+
+  const tick = (now: number) => {
+    const progress = Math.min((now - startTime) / durationMs, 1);
+    const eased = easeInOutCubic(progress);
+
+    window.scrollTo({
+      top: startY + distance * eased
+    });
+
+    if (progress < 1) {
+      animationRef.current = requestAnimationFrame(tick);
+      return;
+    }
+
+    animationRef.current = null;
+  };
+
+  animationRef.current = requestAnimationFrame(tick);
+}
+
+function cancelAnimatedScroll(animationRef: { current: number | null }) {
+  if (animationRef.current === null) {
+    return;
+  }
+
+  cancelAnimationFrame(animationRef.current);
+  animationRef.current = null;
+}
+
+function easeInOutCubic(progress: number) {
+  return progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+}
+
+function smoothScrollToTop(durationMs: number, animationRef: { current: number | null }) {
+  cancelAnimatedScroll(animationRef);
+
+  const startY = window.scrollY;
+
+  if (startY < 4) {
+    window.scrollTo({ top: 0 });
+    return;
+  }
+
+  const startTime = performance.now();
+
+  const tick = (now: number) => {
+    const progress = Math.min((now - startTime) / durationMs, 1);
+    const eased = easeInOutCubic(progress);
+
+    window.scrollTo({
+      top: startY * (1 - eased)
+    });
+
+    if (progress < 1) {
+      animationRef.current = requestAnimationFrame(tick);
+      return;
+    }
+
+    animationRef.current = null;
+  };
+
+  animationRef.current = requestAnimationFrame(tick);
 }
 
 function formatCheck(value: boolean | null) {

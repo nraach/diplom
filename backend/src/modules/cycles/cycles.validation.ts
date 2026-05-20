@@ -18,16 +18,21 @@ const optionalDateField = z.preprocess((value) => {
   return normalized.length > 0 ? normalized : null;
 }, z.string().optional().nullable());
 
+const requiredTextField = z
+  .string()
+  .trim()
+  .min(1, "Поле обязательно для заполнения");
+
 export const createCycleSchema = z.object({
   deviceId: z.string().min(1),
   type: z.enum(["repair", "calibration"]),
+  depotName: requiredTextField,
   receivedAt: optionalDateField,
   checkedAt: optionalDateField,
   sopCheckedAt: optionalDateField,
   diagnosis: optionalTextField,
   workPerformed: optionalTextField,
   serviceNotes: optionalTextField,
-  depotName: optionalTextField,
   depotCheckedAt: optionalDateField,
   equipmentNotes: optionalTextField,
   finalConclusion: optionalTextField,

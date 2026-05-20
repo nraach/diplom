@@ -1,6 +1,6 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { resolveApiUrl } from "../api/client";
-import { CreateDeviceInput, Device, UpdateDeviceInput } from "../types/device";
+import { CreateDeviceInput, Device, DeviceCustomAttribute, UpdateDeviceInput } from "../types/device";
 
 type DeviceFormInput = CreateDeviceInput & UpdateDeviceInput;
 
@@ -8,14 +8,20 @@ type DeviceFormProps = {
   device?: Device;
   submitLabel: string;
   canEditStatus?: boolean;
+  canEditCustomAttributes?: boolean;
   onSubmit: (input: DeviceFormInput) => Promise<unknown>;
   onUploadPhoto?: (file: File) => Promise<string>;
+};
+
+type CustomAttributeDraft = DeviceCustomAttribute & {
+  id: string;
 };
 
 export function DeviceForm({
   device,
   submitLabel,
   canEditStatus = false,
+  canEditCustomAttributes = false,
   onSubmit,
   onUploadPhoto
 }: DeviceFormProps) {
@@ -24,6 +30,7 @@ export function DeviceForm({
   const [category, setCategory] = useState("");
   const [photoUrl, setPhotoUrl] = useState("");
   const [description, setDescription] = useState("");
+  const [customAttributes, setCustomAttributes] = useState<CustomAttributeDraft[]>([]);
   const [isWrittenOff, setIsWrittenOff] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,6 +42,7 @@ export function DeviceForm({
       setCategory(device.category ?? "");
       setPhotoUrl(device.photoUrl ?? "");
       setDescription(device.description ?? "");
+      setCustomAttributes(toCustomAttributeDrafts(device.customAttributes));
       setIsWrittenOff(device.isWrittenOff);
       setSelectedPhoto(null);
       return;
@@ -45,6 +53,7 @@ export function DeviceForm({
     setCategory("");
     setPhotoUrl("");
     setDescription("");
+    setCustomAttributes([]);
     setIsWrittenOff(false);
     setSelectedPhoto(null);
   }, [device]);
@@ -86,7 +95,13 @@ export function DeviceForm({
         category: category || null,
         photoUrl: nextPhotoUrl,
         description: description || null,
-        ...(canEditStatus ? { isWrittenOff, currentStatus: isWrittenOff ? "written_off" : device?.currentStatus } : {})
+        customAttributes: customAttributes
+          .map((attribute) => ({
+            label: attribute.label.trim(),
+            value: attribute.value.trim()
+          }))
+          .filter((attribute) => attribute.label && attribute.value),
+        ...(canEditStatus ? { isWrittenOff, ...(isWrittenOff ? { currentStatus: "written_off" as const } : {}) } : {})
       });
 
       if (selectedPhoto) {
@@ -102,6 +117,20 @@ export function DeviceForm({
     setSelectedPhoto(file);
   }
 
+  function handleCustomAttributeChange(id: string, field: keyof DeviceCustomAttribute, value: string) {
+    setCustomAttributes((current) =>
+      current.map((attribute) => (attribute.id === id ? { ...attribute, [field]: value } : attribute))
+    );
+  }
+
+  function handleAddCustomAttribute() {
+    setCustomAttributes((current) => [...current, createEmptyCustomAttribute()]);
+  }
+
+  function handleRemoveCustomAttribute(id: string) {
+    setCustomAttributes((current) => current.filter((attribute) => attribute.id !== id));
+  }
+
   return (
     <form className="device-form" onSubmit={handleSubmit}>
       <div className="form-surface">
@@ -113,15 +142,10 @@ export function DeviceForm({
             </div>
           </div>
 
-          <div className="form-grid">
+          <div className="form-grid device-form-grid">
             <label className="form-field">
               <span>Серийный номер</span>
-              <input
-                value={serialNumber}
-                onChange={(event) => setSerialNumber(event.target.value)}
-                placeholder="Например: NDT-001"
-                required
-              />
+              <input value={serialNumber} onChange={(event) => setSerialNumber(event.target.value)} placeholder="Например: NDT-001" required />
             </label>
 
             <label className="form-field">
@@ -159,7 +183,59 @@ export function DeviceForm({
           </div>
         </div>
 
-        <div className="form-actions form-actions-spread">
+        {canEditCustomAttributes ? (
+          <div className="form-section">
+            <div className="form-section-header">
+              <div>
+                <p className="eyebrow">Дополнительно</p>
+                <h4>Дополнительные свойства</h4>
+              </div>
+              <button type="button" className="ghost-button" onClick={handleAddCustomAttribute}>
+                Добавить свойство
+              </button>
+            </div>
+
+            {customAttributes.length > 0 ? (
+              <div className="custom-attributes-editor">
+                {customAttributes.map((attribute) => (
+                  <div className="custom-attribute-row" key={attribute.id}>
+                    <label className="form-field">
+                      <span>Название свойства</span>
+                      <input
+                        value={attribute.label}
+                        onChange={(event) => handleCustomAttributeChange(attribute.id, "label", event.target.value)}
+                        placeholder="Например: Цвет"
+                      />
+                    </label>
+
+                    <label className="form-field">
+                      <span>Значение</span>
+                      <input
+                        value={attribute.value}
+                        onChange={(event) => handleCustomAttributeChange(attribute.id, "value", event.target.value)}
+                        placeholder="Например: Синий"
+                      />
+                    </label>
+
+                    <button
+                      type="button"
+                      className="ghost-button danger-ghost custom-attribute-remove"
+                      onClick={() => handleRemoveCustomAttribute(attribute.id)}
+                    >
+                      Удалить
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="muted-text">Сюда можно добавить произвольные свойства прибора: цвет, исполнение, комплектацию и другие детали.</p>
+            )}
+
+            <p className="form-hint">Пустые строки не сохраняются.</p>
+          </div>
+        ) : null}
+
+        <div className="form-actions form-actions-spread device-form-actions">
           {canEditStatus ? (
             <label className="checkbox-card">
               <input type="checkbox" checked={isWrittenOff} onChange={(event) => setIsWrittenOff(event.target.checked)} />
@@ -179,4 +255,27 @@ export function DeviceForm({
       </div>
     </form>
   );
+}
+
+function createEmptyCustomAttribute(): CustomAttributeDraft {
+  return {
+    id: createDraftId(),
+    label: "",
+    value: ""
+  };
+}
+
+function toCustomAttributeDrafts(attributes: DeviceCustomAttribute[]) {
+  return attributes.map((attribute) => ({
+    ...attribute,
+    id: createDraftId()
+  }));
+}
+
+function createDraftId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `attr-${Math.random().toString(36).slice(2, 10)}`;
 }

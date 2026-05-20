@@ -1,5 +1,6 @@
 import { UserRole } from "@prisma/client";
 import { hasCalibrationWarning } from "../../utils/calibration";
+import { getDeviceWorkflowStatus } from "../../utils/device-workflow-status";
 import {
   getActiveCyclesForDashboard,
   getDevicesForDashboard,
@@ -14,6 +15,7 @@ export const dashboardService = {
 
     const devicesWithCalibrationWarning = devices.map((device) => ({
       ...device,
+      currentStatus: getDeviceWorkflowStatus(device.currentStatus, device.serviceCycles),
       needsCalibrationWarning: hasCalibrationWarning(device.serviceCycles, device.createdAt)
     }));
 

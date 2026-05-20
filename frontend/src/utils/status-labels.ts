@@ -6,6 +6,8 @@ export const deviceStatusLabels: Record<DeviceStatus, string> = {
   active: "Активен",
   in_repair: "В ремонте",
   in_calibration: "На калибровке",
+  sop: "SOP",
+  depot: "Depot",
   ready_for_handover: "Готов к передаче",
   handed_over: "Передан",
   needs_calibration: "Требуется калибровка",

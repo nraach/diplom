@@ -1,4 +1,5 @@
-﻿import { ServiceCycle } from "../types/cycle";
+import { ServiceCycle } from "../types/cycle";
+import { CycleEditorTarget } from "./CycleForm";
 import { HandoverForm } from "./HandoverForm";
 
 type CycleNextActionProps = {
@@ -9,7 +10,7 @@ type CycleNextActionProps = {
     readyForHandover?: boolean;
     comment?: string | null;
   }) => Promise<unknown>;
-  onOpenEditor: () => void;
+  onOpenEditor: (target?: CycleEditorTarget) => void;
   onHandover: (comment: string | null) => Promise<unknown>;
 };
 
@@ -58,7 +59,7 @@ export function CycleNextAction({
           disabled={disabled}
           onClick={() => {
             if (nextAction.kind === "edit") {
-              onOpenEditor();
+              onOpenEditor(nextAction.target);
               return;
             }
 
@@ -95,6 +96,7 @@ function getNextAction(cycle: ServiceCycle) {
       title: "Заполнить диагноз",
       description: "Для ремонта сначала нужно зафиксировать, что именно сломано или какие симптомы обнаружены.",
       buttonLabel: "Перейти к диагнозу",
+      target: "diagnosis" as const,
       hint: "Откроется форма редактирования текущего цикла."
     };
   }
@@ -105,6 +107,7 @@ function getNextAction(cycle: ServiceCycle) {
       title: "Зафиксировать выполненные работы",
       description: "Перед дальнейшими проверками лучше явно указать, что уже сделано по прибору.",
       buttonLabel: "Перейти к работам",
+      target: "work" as const,
       hint: "Откроется форма редактирования текущего цикла."
     };
   }
@@ -115,16 +118,7 @@ function getNextAction(cycle: ServiceCycle) {
       title: "Зафиксировать результат SOP",
       description: "Трекер ждет первую контрольную точку. Отметь итог SOP в карточке цикла.",
       buttonLabel: "Перейти к SOP",
-      hint: "Откроется форма редактирования текущего цикла."
-    };
-  }
-
-  if (cycle.depotCheck === null) {
-    return {
-      kind: "edit" as const,
-      title: "Зафиксировать результат Depot",
-      description: "Следующий этап после SOP — результат Depot-проверки. Его лучше явно отметить в цикле.",
-      buttonLabel: "Перейти к Depot",
+      target: "sop" as const,
       hint: "Откроется форма редактирования текущего цикла."
     };
   }
@@ -135,6 +129,18 @@ function getNextAction(cycle: ServiceCycle) {
       title: "Указать дату SOP",
       description: "После результата SOP стоит сразу зафиксировать отдельную дату этой проверки в карточке цикла.",
       buttonLabel: "Перейти к дате SOP",
+      target: "sop_date" as const,
+      hint: "Откроется форма редактирования текущего цикла."
+    };
+  }
+
+  if (cycle.depotCheck === null) {
+    return {
+      kind: "edit" as const,
+      title: "Зафиксировать результат Depot",
+      description: "Следующий этап после SOP — результат Depot-проверки. Его лучше явно отметить в цикле.",
+      buttonLabel: "Перейти к Depot",
+      target: "depot" as const,
       hint: "Откроется форма редактирования текущего цикла."
     };
   }
@@ -145,6 +151,7 @@ function getNextAction(cycle: ServiceCycle) {
       title: "Указать дату Depot",
       description: "Перед завершением сервисного случая нужно отдельно зафиксировать дату проверки в Depot.",
       buttonLabel: "Перейти к дате Depot",
+      target: "depot_date" as const,
       hint: "Откроется форма редактирования текущего цикла."
     };
   }
@@ -155,6 +162,7 @@ function getNextAction(cycle: ServiceCycle) {
       title: "Заполнить итог",
       description: "Перед передачей важно кратко зафиксировать итог сервисного случая.",
       buttonLabel: "Перейти к итогу",
+      target: "final" as const,
       hint: "Откроется форма редактирования текущего цикла."
     };
   }

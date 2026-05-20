@@ -36,7 +36,10 @@ export function findDeviceBySerialNumber(serialNumber: string) {
 
 export function createDevice(input: CreateDeviceInput) {
   return prisma.device.create({
-    data: input,
+    data: {
+      ...input,
+      customAttributes: toPrismaJson(input.customAttributes)
+    },
     include: deviceInclude
   });
 }
@@ -44,6 +47,7 @@ export function createDevice(input: CreateDeviceInput) {
 export function updateDevice(id: string, input: UpdateDeviceInput) {
   const data = {
     ...input,
+    customAttributes: toPrismaJson(input.customAttributes),
     isWrittenOff: input.currentStatus === "written_off" ? true : input.isWrittenOff,
     currentStatus: input.isWrittenOff ? "written_off" : input.currentStatus
   };
@@ -53,4 +57,12 @@ export function updateDevice(id: string, input: UpdateDeviceInput) {
     data,
     include: deviceInclude
   });
+}
+
+function toPrismaJson(value: CreateDeviceInput["customAttributes"] | UpdateDeviceInput["customAttributes"]) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  return value as Prisma.InputJsonValue;
 }

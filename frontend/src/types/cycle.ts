@@ -45,6 +45,7 @@ export type ServiceCycle = {
 export type CreateCycleInput = {
   deviceId: string;
   type: ServiceCycleType;
+  depotName: string;
   receivedAt?: string | null;
   checkedAt?: string | null;
   sopCheckedAt?: string | null;
@@ -52,7 +53,6 @@ export type CreateCycleInput = {
   diagnosis?: string | null;
   workPerformed?: string | null;
   serviceNotes?: string | null;
-  depotName?: string | null;
   equipmentNotes?: string | null;
   finalConclusion?: string | null;
   comment?: string | null;

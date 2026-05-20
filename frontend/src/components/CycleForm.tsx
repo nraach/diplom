@@ -1,9 +1,12 @@
-﻿import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { CreateCycleInput, ServiceCycle, ServiceCycleStatus, ServiceCycleType, UpdateCycleInput } from "../types/cycle";
 import { cycleStatusLabels, cycleTypeLabels } from "../utils/status-labels";
 
+export type CycleEditorTarget = "top" | "diagnosis" | "work" | "sop" | "sop_date" | "depot" | "depot_date" | "final";
+
 type CycleFormProps = {
   submitLabel: string;
+  initialTarget?: CycleEditorTarget | null;
 } & (
   | {
       deviceId: string;
@@ -19,10 +22,13 @@ type CycleFormProps = {
 
 const cycleStatuses = Object.keys(cycleStatusLabels) as ServiceCycleStatus[];
 
-export function CycleForm({ deviceId, cycle, submitLabel, onSubmit }: CycleFormProps) {
+export function CycleForm({ deviceId, cycle, submitLabel, onSubmit, initialTarget = null }: CycleFormProps) {
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const handledAutoScrollTargetRef = useRef<CycleEditorTarget | null>(null);
   const [type, setType] = useState<ServiceCycleType>("repair");
   const [status, setStatus] = useState<ServiceCycleStatus>("created");
   const [receivedAt, setReceivedAt] = useState(getTodayDateValue());
+  const [depotName, setDepotName] = useState("");
   const [sopCheckedAt, setSopCheckedAt] = useState("");
   const [depotCheckedAt, setDepotCheckedAt] = useState("");
   const [sopCheck, setSopCheck] = useState("");
@@ -39,20 +45,56 @@ export function CycleForm({ deviceId, cycle, submitLabel, onSubmit }: CycleFormP
 
   const hasExistingCycle = Boolean(cycle);
   const isCreatedStage = !hasExistingCycle || status === "created";
-  const isRepairWorkStage = type === "repair" && hasExistingCycle && status === "in_progress";
   const shouldShowWorkBlocks = hasExistingCycle && status !== "created";
   const shouldShowControlBlocks =
     hasExistingCycle &&
     status !== "created" &&
     (type !== "repair" || (hasText(diagnosis) && hasText(workPerformed)));
+  const needsDepotNameNow = !hasText(depotName);
+  const needsDiagnosisNow = type === "repair" && shouldShowWorkBlocks && !hasText(diagnosis);
+  const needsWorkPerformedNow = type === "repair" && shouldShowWorkBlocks && !needsDiagnosisNow && !hasText(workPerformed);
+  const needsSopResultNow = shouldShowControlBlocks && !needsDiagnosisNow && !needsWorkPerformedNow && sopCheck === "";
+  const needsSopDateNow =
+    shouldShowControlBlocks &&
+    !needsDiagnosisNow &&
+    !needsWorkPerformedNow &&
+    !needsSopResultNow &&
+    sopCheck === "true" &&
+    !hasText(sopCheckedAt);
+  const needsDepotResultNow =
+    shouldShowControlBlocks &&
+    !needsDiagnosisNow &&
+    !needsWorkPerformedNow &&
+    !needsSopResultNow &&
+    !needsSopDateNow &&
+    depotCheck === "";
+  const needsDepotDateNow =
+    shouldShowControlBlocks &&
+    !needsDiagnosisNow &&
+    !needsWorkPerformedNow &&
+    !needsSopResultNow &&
+    !needsSopDateNow &&
+    !needsDepotResultNow &&
+    depotCheck === "true" &&
+    !hasText(depotCheckedAt);
+  const needsFinalConclusionNow =
+    shouldShowControlBlocks &&
+    !needsDiagnosisNow &&
+    !needsWorkPerformedNow &&
+    !needsSopResultNow &&
+    !needsSopDateNow &&
+    !needsDepotResultNow &&
+    !needsDepotDateNow &&
+    !hasText(finalConclusion);
 
   useEffect(() => {
     if (cycle) {
       setType(cycle.type);
       setStatus(cycle.status);
       setReceivedAt(toDateInputValue(cycle.receivedAt) || getTodayDateValue());
-      setSopCheckedAt(toDateInputValue(cycle.sopCheckedAt ?? cycle.checkedAt));
-      setDepotCheckedAt(toDateInputValue(cycle.depotCheckedAt ?? cycle.checkedAt));
+      setDepotName(cycle.depotName ?? "");
+      setSopCheckedAt(toDateInputValue(cycle.sopCheckedAt));
+      setDepotCheckedAt(toDateInputValue(cycle.depotCheckedAt));
       setSopCheck(booleanToSelectValue(cycle.sopCheck));
       setDepotCheck(booleanToSelectValue(cycle.depotCheck));
       setReadyForHandover(cycle.readyForHandover);
@@ -69,6 +111,7 @@ export function CycleForm({ deviceId, cycle, submitLabel, onSubmit }: CycleFormP
     setType("repair");
     setStatus("created");
     setReceivedAt(getTodayDateValue());
+    setDepotName("");
     setSopCheckedAt("");
     setDepotCheckedAt("");
     setSopCheck("");
@@ -83,6 +126,40 @@ export function CycleForm({ deviceId, cycle, submitLabel, onSubmit }: CycleFormP
     setLocalError(null);
   }, [cycle]);
 
+  useEffect(() => {
+    if (!initialTarget) {
+      handledAutoScrollTargetRef.current = null;
+      return;
+    }
+
+    if (handledAutoScrollTargetRef.current === initialTarget) {
+      return;
+    }
+
+    if (!formRef.current || !initialTarget) {
+      return;
+    }
+
+    let frameId = 0;
+    let nestedFrameId = 0;
+
+    frameId = requestAnimationFrame(() => {
+      nestedFrameId = requestAnimationFrame(() => {
+        if (!formRef.current) {
+          return;
+        }
+
+        scrollCycleFormToTarget(formRef.current, initialTarget);
+        handledAutoScrollTargetRef.current = initialTarget;
+      });
+    });
+
+    return () => {
+      cancelAnimationFrame(frameId);
+      cancelAnimationFrame(nestedFrameId);
+    };
+  }, [initialTarget, shouldShowWorkBlocks, shouldShowControlBlocks]);
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setLocalError(null);
@@ -91,6 +168,7 @@ export function CycleForm({ deviceId, cycle, submitLabel, onSubmit }: CycleFormP
       cycle,
       type,
       status,
+      depotName,
       diagnosis,
       workPerformed,
       sopCheck,
@@ -111,6 +189,7 @@ export function CycleForm({ deviceId, cycle, submitLabel, onSubmit }: CycleFormP
     try {
       const payload = {
         receivedAt: emptyToNull(receivedAt),
+        depotName: emptyToNull(depotName),
         sopCheckedAt: emptyToNull(sopCheckedAt),
         depotCheckedAt: emptyToNull(depotCheckedAt),
         diagnosis: emptyToNull(diagnosis),
@@ -133,7 +212,8 @@ export function CycleForm({ deviceId, cycle, submitLabel, onSubmit }: CycleFormP
         await onSubmit({
           deviceId,
           type,
-          ...payload
+          ...payload,
+          depotName: depotName.trim()
         });
       }
     } finally {
@@ -142,7 +222,7 @@ export function CycleForm({ deviceId, cycle, submitLabel, onSubmit }: CycleFormP
   }
 
   return (
-    <form className="device-form" onSubmit={handleSubmit}>
+    <form className="device-form" onSubmit={handleSubmit} ref={formRef}>
       <div className="form-surface">
         <div className="form-section">
           <div className="form-section-header">
@@ -188,7 +268,7 @@ export function CycleForm({ deviceId, cycle, submitLabel, onSubmit }: CycleFormP
                   </div>
                 ) : (
                   <label className="form-field">
-                    <span>Статус цикла</span>
+                    <span>{"\u0421\u0442\u0430\u0442\u0443\u0441 \u0446\u0438\u043a\u043b\u0430"}</span>
                     <select value={status} onChange={(event) => setStatus(event.target.value as ServiceCycleStatus)}>
                       {cycleStatuses.map((value) => (
                         <option key={value} value={value}>
@@ -201,10 +281,22 @@ export function CycleForm({ deviceId, cycle, submitLabel, onSubmit }: CycleFormP
 
                 <label className="form-field">
                   <span>
-                    Дата приема
-                    {!hasText(receivedAt) ? <FieldRequirement tone="current">Нужно сейчас</FieldRequirement> : null}
+                    {"\u0414\u0430\u0442\u0430 \u043f\u0440\u0438\u0435\u043c\u0430"}
+                    {!hasText(receivedAt) ? <FieldRequirement tone="current">{"\u041d\u0443\u0436\u043d\u043e \u0441\u0435\u0439\u0447\u0430\u0441"}</FieldRequirement> : null}
                   </span>
                   <input type="date" value={receivedAt} onChange={(event) => setReceivedAt(event.target.value)} />
+                </label>
+
+                <label className="form-field">
+                  <span>
+                    {"\u0418\u0437 \u043a\u0430\u043a\u043e\u0433\u043e \u0434\u0435\u043f\u043e \u043f\u043e\u0441\u0442\u0443\u043f\u0438\u043b \u043f\u0440\u0438\u0431\u043e\u0440"}
+                    {needsDepotNameNow ? <FieldRequirement tone="current">{"\u041d\u0443\u0436\u043d\u043e \u0441\u0435\u0439\u0447\u0430\u0441"}</FieldRequirement> : null}
+                  </span>
+                  <input
+                    value={depotName}
+                    onChange={(event) => setDepotName(event.target.value)}
+                    placeholder={"\u041d\u0430\u043f\u0440\u0438\u043c\u0435\u0440: \u0414\u0435\u043f\u043e \u041d\u043e\u0432\u043e\u0441\u0438\u0431\u0438\u0440\u0441\u043a"}
+                  />
                 </label>
 
                 <label className="span-2 form-field">
@@ -230,10 +322,10 @@ export function CycleForm({ deviceId, cycle, submitLabel, onSubmit }: CycleFormP
                   </div>
 
                   <div className="form-grid">
-                    <label className="span-2 form-field">
+                    <label className="span-2 form-field" data-cycle-anchor="diagnosis">
                       <span>
                         Диагноз
-                        {isRepairWorkStage ? <FieldRequirement tone="current">Нужно сейчас</FieldRequirement> : null}
+                        {needsDiagnosisNow ? <FieldRequirement tone="current">Нужно сейчас</FieldRequirement> : null}
                       </span>
                       <textarea
                         value={diagnosis}
@@ -266,10 +358,10 @@ export function CycleForm({ deviceId, cycle, submitLabel, onSubmit }: CycleFormP
                     </div>
                   </div>
 
-                  <label className="span-2 form-field">
+                  <label className="span-2 form-field" data-cycle-anchor="work">
                     <span>
                       Что сделано
-                      {isRepairWorkStage ? <FieldRequirement tone="current">Нужно сейчас</FieldRequirement> : null}
+                      {needsWorkPerformedNow ? <FieldRequirement tone="current">Нужно сейчас</FieldRequirement> : null}
                     </span>
                     <textarea
                       value={workPerformed}
@@ -300,8 +392,11 @@ export function CycleForm({ deviceId, cycle, submitLabel, onSubmit }: CycleFormP
                         <span>Отдельно фиксируем результат и дату проверки на SOP.</span>
                       </div>
                       <div className="cycle-check-card-body">
-                        <label className="form-field cycle-check-field">
-                          <span>Результат SOP</span>
+                        <label className="form-field cycle-check-field" data-cycle-anchor="sop">
+                          <span>
+                            Результат SOP
+                            {needsSopResultNow ? <FieldRequirement tone="current">Нужно сейчас</FieldRequirement> : null}
+                          </span>
                           <select value={sopCheck} onChange={(event) => setSopCheck(event.target.value)}>
                             <option value="">Не задано</option>
                             <option value="true">Пройдена</option>
@@ -309,8 +404,11 @@ export function CycleForm({ deviceId, cycle, submitLabel, onSubmit }: CycleFormP
                           </select>
                         </label>
 
-                        <label className="form-field cycle-check-field">
-                          <span>Дата SOP</span>
+                        <label className="form-field cycle-check-field" data-cycle-anchor="sop_date">
+                          <span>
+                            Дата SOP
+                            {needsSopDateNow ? <FieldRequirement tone="current">Нужно сейчас</FieldRequirement> : null}
+                          </span>
                           <input type="date" value={sopCheckedAt} onChange={(event) => setSopCheckedAt(event.target.value)} />
                         </label>
                       </div>
@@ -322,8 +420,11 @@ export function CycleForm({ deviceId, cycle, submitLabel, onSubmit }: CycleFormP
                         <span>Дата Depot хранится отдельно, чтобы проверки не смешивались между собой.</span>
                       </div>
                       <div className="cycle-check-card-body">
-                        <label className="form-field cycle-check-field">
-                          <span>Результат Depot</span>
+                        <label className="form-field cycle-check-field" data-cycle-anchor="depot">
+                          <span>
+                            Результат Depot
+                            {needsDepotResultNow ? <FieldRequirement tone="current">Нужно сейчас</FieldRequirement> : null}
+                          </span>
                           <select value={depotCheck} onChange={(event) => setDepotCheck(event.target.value)}>
                             <option value="">Не задано</option>
                             <option value="true">Пройдена</option>
@@ -331,8 +432,11 @@ export function CycleForm({ deviceId, cycle, submitLabel, onSubmit }: CycleFormP
                           </select>
                         </label>
 
-                        <label className="form-field cycle-check-field">
-                          <span>Дата Depot</span>
+                        <label className="form-field cycle-check-field" data-cycle-anchor="depot_date">
+                          <span>
+                            Дата Depot
+                            {needsDepotDateNow ? <FieldRequirement tone="current">Нужно сейчас</FieldRequirement> : null}
+                          </span>
                           <input type="date" value={depotCheckedAt} onChange={(event) => setDepotCheckedAt(event.target.value)} />
                         </label>
                       </div>
@@ -340,8 +444,11 @@ export function CycleForm({ deviceId, cycle, submitLabel, onSubmit }: CycleFormP
                   </div>
 
                   <div className="form-grid">
-                    <label className="form-field span-2">
-                      <span>Итог</span>
+                    <label className="form-field span-2" data-cycle-anchor="final">
+                      <span>
+                        Итог
+                        {needsFinalConclusionNow ? <FieldRequirement tone="current">Нужно сейчас</FieldRequirement> : null}
+                      </span>
                       <input
                         value={finalConclusion}
                         onChange={(event) => setFinalConclusion(event.target.value)}
@@ -435,6 +542,34 @@ function getTodayDateValue() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function scrollCycleFormToTarget(form: HTMLFormElement, target: CycleEditorTarget) {
+  if (target === "top") {
+    form.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+    return;
+  }
+
+  const anchor = form.querySelector<HTMLElement>(`[data-cycle-anchor="${target}"]`);
+
+  if (!anchor) {
+    form.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+    return;
+  }
+
+  anchor.scrollIntoView({
+    behavior: "smooth",
+    block: "center"
+  });
+
+  const focusable = anchor.querySelector<HTMLElement>("textarea, input, select");
+  focusable?.focus();
+}
+
 function hasText(value: string) {
   return value.trim().length > 0;
 }
@@ -443,6 +578,7 @@ function getLocalValidationMessage(input: {
   cycle?: ServiceCycle;
   type: ServiceCycleType;
   status: ServiceCycleStatus;
+  depotName: string;
   diagnosis: string;
   workPerformed: string;
   sopCheck: string;
@@ -452,6 +588,10 @@ function getLocalValidationMessage(input: {
   finalConclusion: string;
   readyForHandover: boolean;
 }) {
+  if (!input.cycle && !hasText(input.depotName)) {
+    return 'При создании цикла заполните поле "Из какого депо поступил прибор".';
+  }
+
   if (!input.cycle) {
     return null;
   }
@@ -478,6 +618,26 @@ function getLocalValidationMessage(input: {
 
   if (missingForRepairBeforeChecks.length > 0) {
     return `Сначала заполните: ${missingForRepairBeforeChecks.join(", ")}.`;
+  }
+
+  if (input.status === "sop_passed" && input.sopCheck !== "true") {
+    return 'Для статуса "SOP пройден" выберите результат SOP "Пройдена".';
+  }
+
+  if (input.status === "sop_failed" && input.sopCheck !== "false") {
+    return 'Для статуса "SOP не пройден" выберите результат SOP "Не пройдена".';
+  }
+
+  if ((input.status === "depot_passed" || input.status === "depot_failed") && input.sopCheck === "") {
+    return "Перед этапом Depot сначала зафиксируйте результат SOP.";
+  }
+
+  if (input.status === "depot_passed" && input.depotCheck !== "true") {
+    return 'Для статуса "Depot пройден" выберите результат Depot "Пройдена".';
+  }
+
+  if (input.status === "depot_failed" && input.depotCheck !== "false") {
+    return 'Для статуса "Depot не пройден" выберите результат Depot "Не пройдена".';
   }
 
   const missingPassedCheckDates: string[] = [];
