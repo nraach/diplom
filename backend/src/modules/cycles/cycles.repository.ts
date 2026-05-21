@@ -29,7 +29,7 @@ export function findActiveCycleByDeviceId(deviceId: string) {
   return prisma.serviceCycle.findFirst({
     where: {
       deviceId,
-      status: { notIn: ["handed_over", "cancelled"] }
+      status: { notIn: ["handed_over"] }
     }
   });
 }

@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { FloatingToast } from "./FloatingToast";
 import { CreateCycleInput, ServiceCycle, ServiceCycleStatus, ServiceCycleType, UpdateCycleInput } from "../types/cycle";
 import { cycleStatusLabels, cycleTypeLabels } from "../utils/status-labels";
@@ -45,7 +45,6 @@ export function CycleForm({ deviceId, cycle, submitLabel, onSubmit, initialTarge
   const [localError, setLocalError] = useState<string | null>(null);
 
   const hasExistingCycle = Boolean(cycle);
-  const isCreatedStage = !hasExistingCycle || status === "created";
   const shouldShowWorkBlocks = hasExistingCycle && status !== "created";
   const shouldShowControlBlocks =
     hasExistingCycle &&

@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import { AuthenticatedRequest } from "../../middleware/auth.middleware";
 import { AppError } from "../../utils/errors";
 import { devicesService } from "./devices.service";
+import { validateUploadedImage } from "./devices.upload";
 
 export const devicesController = {
   async list(_req: Request, res: Response, next: NextFunction) {
@@ -28,7 +29,8 @@ export const devicesController = {
           ? req.body
           : {
               ...req.body,
-              customAttributes: undefined
+              customAttributes: undefined,
+              calibrationIntervalDays: undefined
             };
 
       const result = await devicesService.create(input, user.id);
@@ -38,13 +40,15 @@ export const devicesController = {
     }
   },
 
-  uploadPhoto(req: Request, res: Response, next: NextFunction) {
+  async uploadPhoto(req: Request, res: Response, next: NextFunction) {
     try {
       const file = req.file;
 
       if (!file) {
         throw new AppError(400, "Файл не был загружен");
       }
+
+      await validateUploadedImage(file);
 
       res.status(201).json({
         photoUrl: `/uploads/${file.filename}`

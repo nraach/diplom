@@ -1,4 +1,4 @@
-﻿import { DeviceStatus, Prisma, ServiceCycleStatus } from "@prisma/client";
+import { DeviceStatus, Prisma, ServiceCycleStatus } from "@prisma/client";
 import { prisma } from "../../prisma/client";
 import { createAuditLog, toAuditValue } from "../../utils/audit";
 import { isActiveCycleStatus } from "../../utils/cycle-status";
@@ -61,10 +61,6 @@ function getDeviceStatusAfterCycleUpdate(
     return "ready_for_handover";
   }
 
-  if (nextStatus === "cancelled") {
-    return null;
-  }
-
   if (nextStatus === "handed_over") {
     return "handed_over";
   }
@@ -77,7 +73,7 @@ async function getDeviceStatusAfterCycleDelete(tx: Prisma.TransactionClient, cyc
     where: {
       deviceId: cycle.deviceId,
       id: { not: cycle.id },
-      status: { notIn: ["handed_over", "cancelled"] }
+      status: { notIn: ["handed_over"] }
     },
     orderBy: { createdAt: "desc" }
   });
@@ -124,11 +120,11 @@ function getDerivedCycleStatus(
   input: UpdateCycleInput,
   nextState: ReturnType<typeof getMergedCycleState>
 ): ServiceCycleStatus {
-  if (currentStatus === "handed_over" || currentStatus === "cancelled") {
+  if (currentStatus === "handed_over") {
     return input.status ?? currentStatus;
   }
 
-  if (input.status === "created" || input.status === "in_progress" || input.status === "cancelled") {
+  if (input.status === "created" || input.status === "in_progress") {
     return input.status;
   }
 
@@ -430,8 +426,6 @@ export const cyclesService = {
           data: { currentStatus: nextDeviceStatus }
         });
       }
-
-      // TODO: Docs do not define how cancelling a cycle should affect Device.currentStatus.
       return result;
     });
 

@@ -49,8 +49,7 @@ export const updateCycleSchema = z.object({
       "depot_passed",
       "depot_failed",
       "ready_for_handover",
-      "handed_over",
-      "cancelled"
+      "handed_over"
     ])
     .optional(),
   sopCheck: z.boolean().optional().nullable(),

@@ -63,6 +63,10 @@
   --color-accent-soft-strong: #e1dbf2;
   --color-accent-text: #4f4778;
   --color-shadow: rgba(43, 35, 69, 0.06);
+  --space-page: 0.9rem;
+  --space-panel: 0.9rem;
+  --space-section: 0.8rem;
+  --space-tight: 0.55rem;
   color: var(--color-text);
   background: var(--color-bg);
   font-family:
@@ -353,7 +357,7 @@ tbody tr:hover {
 }
 
 .content {
-  padding: 1rem 1.5rem 2rem;
+  padding: 0.9rem 1.5rem 1.7rem;
 }
 
 .content-inner {
@@ -364,11 +368,11 @@ tbody tr:hover {
 
 .page-stack {
   display: grid;
-  gap: 1rem;
+  gap: var(--space-page);
 }
 
 .dashboard-page {
-  gap: 1rem;
+  gap: var(--space-page);
 }
 
 .page-header,
@@ -385,12 +389,12 @@ tbody tr:hover {
   border: 1px solid var(--color-border);
   border-radius: 10px;
   box-shadow: 0 6px 16px rgba(43, 35, 69, 0.06);
-  padding: 1rem 1.1rem;
+  padding: 0.95rem 1.05rem;
 }
 
 .device-page-header {
   gap: 1rem;
-  padding: 1.3rem 1.4rem;
+  padding: 1.1rem 1.2rem;
 }
 
 .device-page-header .page-header-copy {
@@ -483,8 +487,8 @@ tbody tr:hover {
 
 .panel {
   display: grid;
-  gap: 0.9rem;
-  padding: 1rem;
+  gap: var(--space-panel);
+  padding: 0.95rem;
 }
 
 .panel h3 {
@@ -494,19 +498,23 @@ tbody tr:hover {
 }
 
 .device-editor-region {
-  margin-top: 0;
+  margin-bottom: calc(var(--space-page) * -1);
+  margin-top: calc(var(--space-page) * -1);
   max-height: 0;
   opacity: 0;
   overflow: hidden;
   pointer-events: none;
   transform: translateY(-10px);
   transition:
+    margin 0.38s ease,
     max-height 0.38s ease,
     opacity 0.24s ease,
     transform 0.38s ease;
 }
 
 .device-editor-region-open {
+  margin-bottom: 0;
+  margin-top: 0;
   max-height: 2400px;
   opacity: 1;
   pointer-events: auto;
@@ -1161,11 +1169,12 @@ tbody tr:hover {
 .dashboard-main-grid {
   display: grid;
   align-items: start;
-  gap: 1rem;
+  gap: var(--space-page);
   grid-template-columns: minmax(0, 1.02fr) minmax(0, 1.18fr);
 }
 
 .dashboard-panel {
+  align-content: start;
   min-height: 100%;
 }
 
@@ -1218,17 +1227,17 @@ tbody tr:hover {
 
 .dashboard-control-stack {
   display: grid;
-  gap: 1rem;
+  gap: var(--space-page);
 }
 
 .dashboard-subsection {
   display: grid;
-  gap: 0.82rem;
+  gap: var(--space-section);
 }
 
 .dashboard-subsection-divider {
   border-top: 1px solid var(--color-border);
-  padding-top: 1rem;
+  padding-top: var(--space-page);
 }
 
 .dashboard-subsection-header {
@@ -1244,6 +1253,12 @@ tbody tr:hover {
   font-weight: 700;
   line-height: 1.2;
   margin: 0;
+}
+
+.dashboard-link-button {
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.2;
 }
 
 .metric-repair {
@@ -1270,7 +1285,7 @@ tbody tr:hover {
 .device-details-grid {
   display: grid;
   align-items: start;
-  gap: 1rem;
+  gap: var(--space-page);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -1510,7 +1525,7 @@ tbody tr:hover {
 
 .details-list {
   display: grid;
-  gap: 0.55rem;
+  gap: var(--space-tight);
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 0;
 }
@@ -1521,7 +1536,7 @@ tbody tr:hover {
   border-radius: 10px;
   display: grid;
   gap: 0.18rem;
-  padding: 0.72rem 0.76rem;
+  padding: 0.68rem 0.72rem;
 }
 
 .details-list dt {
@@ -1545,7 +1560,7 @@ tbody tr:hover {
 .device-attributes-section {
   display: grid;
   gap: 0.75rem;
-  margin-top: 1rem;
+  margin-top: var(--space-page);
 }
 
 .subsection-heading {
@@ -1577,13 +1592,13 @@ tbody tr:hover {
 
 .active-cycle-stack {
   display: grid;
-  gap: 1rem;
+  gap: var(--space-page);
 }
 
 .active-cycle-card {
   display: grid;
-  gap: 0.9rem;
-  padding: 1rem;
+  gap: var(--space-panel);
+  padding: 0.95rem;
   border: 1px solid #ddd5f1;
   border-radius: 10px;
   background: var(--color-surface);
@@ -1647,12 +1662,6 @@ tbody tr:hover {
 .cycle-tracker-compact {
   gap: 0.75rem;
   padding: 0.85rem 0.9rem;
-}
-
-.cycle-tracker-cancelled {
-  background:
-    radial-gradient(circle at top left, rgba(199, 91, 91, 0.08) 0%, rgba(199, 91, 91, 0) 30%),
-    linear-gradient(180deg, #fff8f8 0%, #fcfbff 100%);
 }
 
 .cycle-tracker-header {
@@ -1731,10 +1740,6 @@ tbody tr:hover {
 
 .cycle-tracker-step-failed::after {
   background: #efb4b4;
-}
-
-.cycle-tracker-step-cancelled::after {
-  background: #e7e2ee;
 }
 
 .cycle-tracker-node {
@@ -1822,11 +1827,6 @@ tbody tr:hover {
   background: #ffe1e1;
 }
 
-.cycle-tracker-step-cancelled .cycle-tracker-node {
-  border-color: #c8c0d8;
-  background: #f1eef6;
-}
-
 .cycle-tracker-step-completed .cycle-tracker-copy strong {
   color: #24573b;
 }
@@ -1837,11 +1837,6 @@ tbody tr:hover {
 
 .cycle-tracker-step-failed .cycle-tracker-copy strong {
   color: #9b2d2d;
-}
-
-.cycle-tracker-step-cancelled .cycle-tracker-copy strong,
-.cycle-tracker-step-cancelled .cycle-tracker-copy span {
-  color: #8c849e;
 }
 
 .cycle-tracker-step-completed {
@@ -1866,11 +1861,6 @@ tbody tr:hover {
   background: linear-gradient(180deg, rgba(255, 243, 243, 0.98) 0%, rgba(255, 251, 251, 0.99) 100%);
 }
 
-.cycle-tracker-step-cancelled {
-  border-color: #e0dbea;
-  background: linear-gradient(180deg, rgba(246, 244, 249, 0.98) 0%, rgba(255, 255, 255, 0.98) 100%);
-}
-
 .cycle-tracker-state-completed {
   background: #e2f2e8;
   color: #2c6543;
@@ -1889,11 +1879,6 @@ tbody tr:hover {
 .cycle-tracker-state-failed {
   background: #ffe5e5;
   color: #a23838;
-}
-
-.cycle-tracker-state-cancelled {
-  background: #ece8f2;
-  color: #7d7294;
 }
 
 @keyframes trackerPulse {

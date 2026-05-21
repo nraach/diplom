@@ -43,7 +43,6 @@ enum ServiceCycleStatus {
   depot_failed
   ready_for_handover
   handed_over
-  cancelled
 }
 
 model User {
@@ -69,6 +68,7 @@ model Device {
   photoUrl      String?
   description   String?
   customAttributes Json?
+  calibrationIntervalDays Int?
   currentStatus DeviceStatus   @default(active)
   isWrittenOff  Boolean        @default(false)
   createdAt     DateTime       @default(now())

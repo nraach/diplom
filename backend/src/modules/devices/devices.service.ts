@@ -82,6 +82,7 @@ function withCalibrationWarning<
     currentStatus: Parameters<typeof getDeviceWorkflowStatus>[0];
     serviceCycles: Parameters<typeof hasCalibrationWarning>[0];
     createdAt: Date;
+    calibrationIntervalDays?: number | null;
     customAttributes?: unknown;
   }
 >(
@@ -91,7 +92,7 @@ function withCalibrationWarning<
     ...device,
     customAttributes: normalizeDeviceCustomAttributes(device.customAttributes),
     currentStatus: getDeviceWorkflowStatus(device.currentStatus, device.serviceCycles),
-    needsCalibrationWarning: hasCalibrationWarning(device.serviceCycles, device.createdAt)
+    needsCalibrationWarning: hasCalibrationWarning(device.serviceCycles, device.createdAt, device.calibrationIntervalDays ?? null)
   };
 }
 

@@ -28,7 +28,7 @@ function getTone(value: string) {
     return "ready";
   }
 
-  if (value === "handed_over" || value === "cancelled" || value === "written_off") {
+  if (value === "handed_over" || value === "written_off") {
     return "done";
   }
 

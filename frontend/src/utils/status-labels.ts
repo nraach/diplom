@@ -22,8 +22,7 @@ export const cycleStatusLabels: Record<ServiceCycleStatus, string> = {
   depot_passed: "Depot пройден",
   depot_failed: "Depot не пройден",
   ready_for_handover: "Готов к передаче",
-  handed_over: "Передан",
-  cancelled: "Отменен"
+  handed_over: "Передан"
 };
 
 export const cycleTypeLabels: Record<ServiceCycleType, string> = {

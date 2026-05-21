@@ -1,14 +1,16 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { resolveApiUrl } from "../api/client";
 import { CreateDeviceInput, Device, DeviceCustomAttribute, UpdateDeviceInput } from "../types/device";
+import { DEFAULT_CALIBRATION_INTERVAL_DAYS } from "../utils/calibration";
 
-type DeviceFormInput = CreateDeviceInput & UpdateDeviceInput;
+export type DeviceFormInput = CreateDeviceInput & UpdateDeviceInput;
 
 type DeviceFormProps = {
   device?: Device;
   submitLabel: string;
   canEditStatus?: boolean;
   canEditCustomAttributes?: boolean;
+  canEditCalibrationSettings?: boolean;
   onSubmit: (input: DeviceFormInput) => Promise<unknown>;
   onUploadPhoto?: (file: File) => Promise<string>;
 };
@@ -22,6 +24,7 @@ export function DeviceForm({
   submitLabel,
   canEditStatus = false,
   canEditCustomAttributes = false,
+  canEditCalibrationSettings = false,
   onSubmit,
   onUploadPhoto
 }: DeviceFormProps) {
@@ -31,6 +34,7 @@ export function DeviceForm({
   const [photoUrl, setPhotoUrl] = useState("");
   const [description, setDescription] = useState("");
   const [customAttributes, setCustomAttributes] = useState<CustomAttributeDraft[]>([]);
+  const [calibrationIntervalDays, setCalibrationIntervalDays] = useState("");
   const [isWrittenOff, setIsWrittenOff] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -43,6 +47,7 @@ export function DeviceForm({
       setPhotoUrl(device.photoUrl ?? "");
       setDescription(device.description ?? "");
       setCustomAttributes(toCustomAttributeDrafts(device.customAttributes));
+      setCalibrationIntervalDays(device.calibrationIntervalDays ? String(device.calibrationIntervalDays) : "");
       setIsWrittenOff(device.isWrittenOff);
       setSelectedPhoto(null);
       return;
@@ -54,6 +59,7 @@ export function DeviceForm({
     setPhotoUrl("");
     setDescription("");
     setCustomAttributes([]);
+    setCalibrationIntervalDays("");
     setIsWrittenOff(false);
     setSelectedPhoto(null);
   }, [device]);
@@ -95,6 +101,11 @@ export function DeviceForm({
         category: category || null,
         photoUrl: nextPhotoUrl,
         description: description || null,
+        ...(canEditCalibrationSettings
+          ? {
+              calibrationIntervalDays: calibrationIntervalDays.trim() ? Number(calibrationIntervalDays) : null
+            }
+          : {}),
         customAttributes: customAttributes
           .map((attribute) => ({
             label: attribute.label.trim(),
@@ -180,6 +191,24 @@ export function DeviceForm({
                 rows={4}
               />
             </label>
+
+            {canEditCalibrationSettings ? (
+              <label className="form-field">
+                <span>Интервал калибровки, дней</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={3650}
+                  inputMode="numeric"
+                  value={calibrationIntervalDays}
+                  onChange={(event) => setCalibrationIntervalDays(event.target.value)}
+                  placeholder={String(DEFAULT_CALIBRATION_INTERVAL_DAYS)}
+                />
+                <small className="field-note">
+                  Если поле пустое, используется базовое значение: {DEFAULT_CALIBRATION_INTERVAL_DAYS} дней.
+                </small>
+              </label>
+            ) : null}
           </div>
         </div>
 

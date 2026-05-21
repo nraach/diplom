@@ -11,6 +11,7 @@ export const createDeviceSchema = z.object({
   category: z.string().optional().nullable(),
   photoUrl: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
+  calibrationIntervalDays: z.number().int().min(1).max(3650).optional().nullable(),
   customAttributes: z.array(deviceCustomAttributeSchema).max(24).optional()
 });
 

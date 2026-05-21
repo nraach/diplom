@@ -10,8 +10,7 @@ export type ServiceCycleStatus =
   | "depot_passed"
   | "depot_failed"
   | "ready_for_handover"
-  | "handed_over"
-  | "cancelled";
+  | "handed_over";
 
 export type ServiceCycle = {
   id: string;

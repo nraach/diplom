@@ -1,7 +1,7 @@
 import { ServiceCycle, ServiceCycleStatus } from "../types/cycle";
 
 export function getCycleDisplayStatus(cycle: Pick<ServiceCycle, "status" | "readyForHandover" | "sopCheck" | "depotCheck">): ServiceCycleStatus {
-  if (cycle.status === "cancelled" || cycle.status === "handed_over" || cycle.status === "ready_for_handover") {
+  if (cycle.status === "handed_over" || cycle.status === "ready_for_handover") {
     return cycle.status;
   }
 

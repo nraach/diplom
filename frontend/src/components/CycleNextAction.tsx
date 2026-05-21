@@ -74,7 +74,7 @@ export function CycleNextAction({
 }
 
 function getNextAction(cycle: ServiceCycle) {
-  if (cycle.status === "cancelled" || cycle.status === "handed_over") {
+  if (cycle.status === "handed_over") {
     return null;
   }
 

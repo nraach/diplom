@@ -1,21 +1,15 @@
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { dashboardApi } from "../api/dashboard.api";
 import { FloatingToast } from "../components/FloatingToast";
 import { StatusBadge } from "../components/StatusBadge";
-import { useAuth } from "../hooks/useAuth";
 import { usePollingQuery } from "../hooks/usePollingQuery";
 import { getCycleDisplayStatus } from "../utils/cycle-display-status";
-import {
-  auditActionLabels,
-  cycleStatusLabels,
-  cycleTypeLabels,
-  deviceStatusLabels,
-  entityTypeLabels
-} from "../utils/status-labels";
+import { cycleStatusLabels, cycleTypeLabels, deviceStatusLabels } from "../utils/status-labels";
 
 export function DashboardPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const [showAllActiveCycles, setShowAllActiveCycles] = useState(false);
   const dashboardQuery = usePollingQuery({ queryKey: ["dashboard"], queryFn: dashboardApi.getSummary });
   const dashboard = dashboardQuery.data;
   const summary = dashboard?.summary ?? {
@@ -27,8 +21,12 @@ export function DashboardPage() {
     needsCalibrationWarning: 0
   };
   const recentDeviceUpdates = dashboard?.recentDeviceUpdates ?? [];
-  const recentAuditActions = dashboard?.recentAuditActions ?? [];
   const activeCycles = dashboard?.activeCycles ?? [];
+  const visibleActiveCycles = useMemo(
+    () => (showAllActiveCycles ? activeCycles : activeCycles.slice(0, 5)),
+    [activeCycles, showAllActiveCycles]
+  );
+  const hasHiddenActiveCycles = activeCycles.length > 5;
 
   return (
     <div className="page-stack dashboard-page">
@@ -114,6 +112,15 @@ export function DashboardPage() {
             <section className="dashboard-subsection">
               <div className="dashboard-subsection-header">
                 <h4>Активные сервисные циклы</h4>
+                {hasHiddenActiveCycles ? (
+                  <button
+                    type="button"
+                    className="link-button dashboard-link-button"
+                    onClick={() => setShowAllActiveCycles((value) => !value)}
+                  >
+                    {showAllActiveCycles ? "Свернуть" : `Показать все (${activeCycles.length})`}
+                  </button>
+                ) : null}
               </div>
               {activeCycles.length === 0 ? <p className="muted-text">Нет активных сервисных циклов.</p> : null}
               {activeCycles.length > 0 ? (
@@ -128,7 +135,7 @@ export function DashboardPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {activeCycles.map((cycle) => (
+                      {visibleActiveCycles.map((cycle) => (
                         <tr
                           key={cycle.id}
                           className="dashboard-cycle-row"
@@ -150,27 +157,6 @@ export function DashboardPage() {
                 </div>
               ) : null}
             </section>
-
-            {user?.role === "admin" ? (
-              <section className="dashboard-subsection dashboard-subsection-divider">
-                <div className="dashboard-subsection-header">
-                  <h4>Последние действия аудита</h4>
-                  <button type="button" className="link-button" onClick={() => navigate("/audit")}>
-                    Все действия
-                  </button>
-                </div>
-                <div className="list-stack dashboard-list">
-                  {recentAuditActions.map((log) => (
-                    <article key={log.id} className="compact-item compact-item-stacked dashboard-audit-item">
-                      <strong>{auditActionLabels[log.action] ?? log.action}</strong>
-                      <span>{entityTypeLabels[log.entityType] ?? log.entityType}</span>
-                      <span>{log.user?.fullName ?? "Неизвестный пользователь"}</span>
-                    </article>
-                  ))}
-                  {recentAuditActions.length === 0 ? <p className="muted-text">Действий аудита пока нет.</p> : null}
-                </div>
-              </section>
-            ) : null}
           </div>
         </div>
       </section>

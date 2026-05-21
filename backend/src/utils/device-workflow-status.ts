@@ -14,7 +14,7 @@ export function getDeviceWorkflowStatus(currentStatus: DeviceStatus, serviceCycl
   }
 
   const activeCycle = [...serviceCycles]
-    .filter((cycle) => cycle.status !== "handed_over" && cycle.status !== "cancelled")
+    .filter((cycle) => cycle.status !== "handed_over")
     .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0];
 
   if (!activeCycle) {

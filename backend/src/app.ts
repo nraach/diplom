@@ -27,7 +27,15 @@ app.use(
   })
 );
 app.use(express.json());
-app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
+app.use(
+  "/uploads",
+  express.static(path.resolve(process.cwd(), "uploads"), {
+    setHeaders(res) {
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("Cross-Origin-Resource-Policy", "same-site");
+    }
+  })
+);
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });

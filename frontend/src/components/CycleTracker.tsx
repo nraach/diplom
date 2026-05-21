@@ -2,7 +2,7 @@ import { ServiceCycle, ServiceCycleStatus } from "../types/cycle";
 import { getCycleDisplayStatus } from "../utils/cycle-display-status";
 import { cycleStatusLabels } from "../utils/status-labels";
 
-type TrackerTone = "completed" | "current" | "upcoming" | "failed" | "cancelled";
+type TrackerTone = "completed" | "current" | "upcoming" | "failed";
 
 type CycleTrackerProps = {
   cycle: ServiceCycle;
@@ -27,17 +27,15 @@ const statusStageMap: Record<ServiceCycleStatus, (typeof stepOrder)[number]> = {
   depot_passed: "depot",
   depot_failed: "depot",
   ready_for_handover: "ready_for_handover",
-  handed_over: "handed_over",
-  cancelled: "created"
+  handed_over: "handed_over"
 };
 
 export function CycleTracker({ cycle, compact = false }: CycleTrackerProps) {
   const displayStatus = getCycleDisplayStatus(cycle);
   const steps = getTrackerSteps(cycle);
-  const isCancelled = displayStatus === "cancelled";
 
   return (
-    <section className={`cycle-tracker ${compact ? "cycle-tracker-compact" : ""} ${isCancelled ? "cycle-tracker-cancelled" : ""}`}>
+    <section className={`cycle-tracker ${compact ? "cycle-tracker-compact" : ""}`}>
       <div className="cycle-tracker-header">
         <div>
           <p className="eyebrow">{compact ? "Маршрут цикла" : "Трекер цикла"}</p>
@@ -45,9 +43,8 @@ export function CycleTracker({ cycle, compact = false }: CycleTrackerProps) {
         </div>
         {!compact ? (
           <p className="cycle-tracker-summary">
-            {isCancelled
-              ? "Цикл был отменен. Трекер сохраняет только уже зафиксированные шаги и показывает, где процесс остановился."
-              : "Текущий этап подсвечен сильнее, завершенные шаги формируют понятный маршрут, а проблемные точки сразу видны отдельно."}
+            Текущий этап подсвечен сильнее, завершенные шаги формируют понятный маршрут, а проблемные точки сразу
+            видны отдельно.
           </p>
         ) : null}
       </div>
@@ -82,10 +79,10 @@ function getTrackerSteps(cycle: ServiceCycle): TrackerStep[] {
   const currentStage = statusStageMap[displayStatus];
   const currentStageIndex = stepOrder.indexOf(currentStage);
 
-  const createdTone = getBaseTone("created", currentStageIndex, cycle);
-  const workTone = getBaseTone("in_progress", currentStageIndex, cycle);
-  const sopTone = getCheckTone("sop", cycle.sopCheck, currentStageIndex, cycle);
-  const depotTone = getCheckTone("depot", cycle.depotCheck, currentStageIndex, cycle);
+  const createdTone = getBaseTone("created", currentStageIndex);
+  const workTone = getBaseTone("in_progress", currentStageIndex);
+  const sopTone = getCheckTone("sop", cycle.sopCheck, currentStageIndex);
+  const depotTone = getCheckTone("depot", cycle.depotCheck, currentStageIndex);
   const readyTone = getReadyTone(cycle, currentStageIndex);
   const handoverTone = getHandoverTone(cycle, currentStageIndex);
 
@@ -121,7 +118,7 @@ function getTrackerSteps(cycle: ServiceCycle): TrackerStep[] {
     {
       id: "ready_for_handover",
       label: "Готов к передаче",
-      caption: cycle.readyForHandover ? "Цикл отмечен как готовый к handover" : "Ожидает подтверждения готовности",
+      caption: cycle.readyForHandover ? "Цикл отмечен как готовый к передаче" : "Ожидает подтверждения готовности",
       tone: readyTone,
       stateLabel: getStateLabel(readyTone)
     },
@@ -129,7 +126,7 @@ function getTrackerSteps(cycle: ServiceCycle): TrackerStep[] {
       id: "handed_over",
       label: "Передан",
       caption:
-        getCycleDisplayStatus(cycle) === "handed_over" && cycle.handedOverAt
+        displayStatus === "handed_over" && cycle.handedOverAt
           ? `Передан ${formatDate(cycle.handedOverAt)}`
           : "Финальная передача еще не выполнена",
       tone: handoverTone,
@@ -138,17 +135,7 @@ function getTrackerSteps(cycle: ServiceCycle): TrackerStep[] {
   ];
 }
 
-function getBaseTone(
-  stepId: (typeof stepOrder)[number],
-  currentStageIndex: number,
-  cycle: ServiceCycle
-): TrackerTone {
-  const displayStatus = getCycleDisplayStatus(cycle);
-
-  if (displayStatus === "cancelled") {
-    return stepId === "created" ? "completed" : "cancelled";
-  }
-
+function getBaseTone(stepId: (typeof stepOrder)[number], currentStageIndex: number): TrackerTone {
   const stepIndex = stepOrder.indexOf(stepId);
 
   if (stepIndex < currentStageIndex) {
@@ -162,18 +149,7 @@ function getBaseTone(
   return "upcoming";
 }
 
-function getCheckTone(
-  stepId: "sop" | "depot",
-  value: boolean | null,
-  currentStageIndex: number,
-  cycle: ServiceCycle
-): TrackerTone {
-  const displayStatus = getCycleDisplayStatus(cycle);
-
-  if (displayStatus === "cancelled") {
-    return value === true ? "completed" : value === false ? "failed" : "cancelled";
-  }
-
+function getCheckTone(stepId: "sop" | "depot", value: boolean | null, currentStageIndex: number): TrackerTone {
   if (value === true) {
     return "completed";
   }
@@ -183,10 +159,6 @@ function getCheckTone(
   }
 
   const stepIndex = stepOrder.indexOf(stepId);
-
-  if (stepIndex < currentStageIndex) {
-    return "upcoming";
-  }
 
   if (stepIndex === currentStageIndex) {
     return "current";
@@ -198,29 +170,25 @@ function getCheckTone(
 function getReadyTone(cycle: ServiceCycle, currentStageIndex: number): TrackerTone {
   const displayStatus = getCycleDisplayStatus(cycle);
 
-  if (displayStatus === "cancelled") {
-    return cycle.readyForHandover ? "completed" : "cancelled";
+  if (displayStatus === "handed_over") {
+    return "completed";
   }
 
-  if (cycle.readyForHandover || displayStatus === "ready_for_handover" || displayStatus === "handed_over") {
-    return displayStatus === "handed_over" ? "completed" : "current";
+  if (cycle.readyForHandover || displayStatus === "ready_for_handover") {
+    return "current";
   }
 
-  return getBaseTone("ready_for_handover", currentStageIndex, cycle);
+  return getBaseTone("ready_for_handover", currentStageIndex);
 }
 
 function getHandoverTone(cycle: ServiceCycle, currentStageIndex: number): TrackerTone {
   const displayStatus = getCycleDisplayStatus(cycle);
 
-  if (displayStatus === "cancelled") {
-    return "cancelled";
-  }
-
   if (displayStatus === "handed_over") {
     return "completed";
   }
 
-  return getBaseTone("handed_over", currentStageIndex, cycle);
+  return getBaseTone("handed_over", currentStageIndex);
 }
 
 function getWorkCaption(cycle: ServiceCycle) {
@@ -228,10 +196,6 @@ function getWorkCaption(cycle: ServiceCycle) {
 
   if (displayStatus === "created") {
     return "Цикл еще не переведен в активную работу";
-  }
-
-  if (displayStatus === "cancelled") {
-    return "Работа по циклу остановлена";
   }
 
   return "Цикл находится в активной сервисной работе";
@@ -259,8 +223,6 @@ function getStateLabel(tone: TrackerTone) {
       return "Дальше";
     case "failed":
       return "Проблема";
-    case "cancelled":
-      return "Отменено";
     default:
       return "";
   }
@@ -274,8 +236,6 @@ function getStepIcon(tone: TrackerTone) {
       return "•";
     case "failed":
       return "!";
-    case "cancelled":
-      return "–";
     case "upcoming":
     default:
       return "";
@@ -283,5 +243,5 @@ function getStepIcon(tone: TrackerTone) {
 }
 
 function formatDate(value: string) {
-  return new Date(value).toLocaleString();
+  return new Date(value).toLocaleString("ru-RU");
 }

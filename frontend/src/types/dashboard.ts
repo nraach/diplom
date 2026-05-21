@@ -1,4 +1,3 @@
-import { AuditLog } from "./audit";
 import { ServiceCycle } from "./cycle";
 import { DeviceStatus } from "./device";
 import { User } from "./user";
@@ -34,5 +33,4 @@ export type DashboardResponse = {
   summary: DashboardSummary;
   recentDeviceUpdates: DashboardDeviceUpdate[];
   activeCycles: DashboardActiveCycle[];
-  recentAuditActions: AuditLog[];
 };

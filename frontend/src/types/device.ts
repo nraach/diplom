@@ -24,6 +24,7 @@ export type Device = {
   photoUrl: string | null;
   description: string | null;
   customAttributes: DeviceCustomAttribute[];
+  calibrationIntervalDays: number | null;
   currentStatus: DeviceStatus;
   isWrittenOff: boolean;
   createdAt: string;
@@ -38,6 +39,7 @@ export type CreateDeviceInput = {
   category?: string | null;
   photoUrl?: string | null;
   description?: string | null;
+  calibrationIntervalDays?: number | null;
   customAttributes?: DeviceCustomAttribute[];
 };
 
