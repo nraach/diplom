@@ -1,15 +1,15 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { dashboardApi } from "../api/dashboard.api";
 import { FloatingToast } from "../components/FloatingToast";
 import { StatusBadge } from "../components/StatusBadge";
 import { usePollingQuery } from "../hooks/usePollingQuery";
+import { DashboardActiveCycle } from "../types/dashboard";
 import { getCycleDisplayStatus } from "../utils/cycle-display-status";
 import { cycleStatusLabels, cycleTypeLabels, deviceStatusLabels } from "../utils/status-labels";
 
 export function DashboardPage() {
   const navigate = useNavigate();
-  const [showAllActiveCycles, setShowAllActiveCycles] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
   const dashboardQuery = usePollingQuery({ queryKey: ["dashboard"], queryFn: dashboardApi.getSummary });
   const dashboard = dashboardQuery.data;
   const summary = dashboard?.summary ?? {
@@ -22,11 +22,59 @@ export function DashboardPage() {
   };
   const recentDeviceUpdates = dashboard?.recentDeviceUpdates ?? [];
   const activeCycles = dashboard?.activeCycles ?? [];
-  const visibleActiveCycles = useMemo(
-    () => (showAllActiveCycles ? activeCycles : activeCycles.slice(0, 5)),
-    [activeCycles, showAllActiveCycles]
-  );
+  const previewActiveCycles = activeCycles.slice(0, 5);
   const hasHiddenActiveCycles = activeCycles.length > 5;
+  const isAllActiveCyclesView = searchParams.get("view") === "active-cycles";
+
+  if (isAllActiveCyclesView) {
+    return (
+      <div className="page-stack dashboard-page">
+        <header className="page-header dashboard-hero">
+          <div>
+            <p className="eyebrow">Контроль</p>
+            <h2>Активные сервисные циклы</h2>
+          </div>
+          <div className="page-header-actions">
+            <button
+              type="button"
+              className="link-button page-header-back-link"
+              onClick={() => {
+                const nextParams = new URLSearchParams(searchParams);
+                nextParams.delete("view");
+                setSearchParams(nextParams);
+              }}
+            >
+              Назад к панели
+            </button>
+          </div>
+        </header>
+
+        {dashboardQuery.isLoading ? <section className="panel muted-panel">Загрузка сводки...</section> : null}
+        {dashboardQuery.error ? (
+          <FloatingToast
+            key={`dashboard-${dashboardQuery.error.message}`}
+            message={dashboardQuery.error.message}
+            variant="error"
+            durationMs={4200}
+            onDismiss={() => void dashboardQuery.refetch()}
+          />
+        ) : null}
+
+        <section className="panel dashboard-panel">
+          <div className="panel-heading dashboard-heading">
+            <div>
+              <p className="eyebrow">Контроль</p>
+              <h3>Все активные сервисные циклы</h3>
+            </div>
+          </div>
+          {activeCycles.length === 0 ? <p className="muted-text">Нет активных сервисных циклов.</p> : null}
+          {activeCycles.length > 0 ? (
+            <ActiveCyclesTable cycles={activeCycles} onOpenDevice={(deviceId) => navigate(`/devices/${deviceId}`)} />
+          ) : null}
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="page-stack dashboard-page">
@@ -116,50 +164,66 @@ export function DashboardPage() {
                   <button
                     type="button"
                     className="link-button dashboard-link-button"
-                    onClick={() => setShowAllActiveCycles((value) => !value)}
+                    onClick={() => {
+                      const nextParams = new URLSearchParams(searchParams);
+                      nextParams.set("view", "active-cycles");
+                      setSearchParams(nextParams);
+                    }}
                   >
-                    {showAllActiveCycles ? "Свернуть" : `Показать все (${activeCycles.length})`}
+                    {`Показать все (${activeCycles.length})`}
                   </button>
                 ) : null}
               </div>
               {activeCycles.length === 0 ? <p className="muted-text">Нет активных сервисных циклов.</p> : null}
               {activeCycles.length > 0 ? (
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Прибор</th>
-                        <th>Тип</th>
-                        <th>Статус</th>
-                        <th>Создал</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {visibleActiveCycles.map((cycle) => (
-                        <tr
-                          key={cycle.id}
-                          className="dashboard-cycle-row"
-                          onClick={() => navigate(`/devices/${cycle.device?.id ?? cycle.deviceId}`)}
-                          title="Открыть карточку прибора"
-                        >
-                          <td className="strong-cell">{cycle.device?.name ?? cycle.deviceId}</td>
-                          <td>
-                            <StatusBadge label={cycleTypeLabels[cycle.type]} value={cycle.type} />
-                          </td>
-                          <td>
-                            <StatusBadge label={cycleStatusLabels[getCycleDisplayStatus(cycle)]} value={getCycleDisplayStatus(cycle)} />
-                          </td>
-                          <td>{cycle.createdBy?.fullName ?? "Неизвестно"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <ActiveCyclesTable cycles={previewActiveCycles} onOpenDevice={(deviceId) => navigate(`/devices/${deviceId}`)} />
               ) : null}
             </section>
           </div>
         </div>
       </section>
+    </div>
+  );
+}
+
+function ActiveCyclesTable({
+  cycles,
+  onOpenDevice
+}: {
+  cycles: DashboardActiveCycle[];
+  onOpenDevice: (deviceId: string) => void;
+}) {
+  return (
+    <div className="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Прибор</th>
+            <th>Тип</th>
+            <th>Статус</th>
+            <th>Создал</th>
+          </tr>
+        </thead>
+        <tbody>
+          {cycles.map((cycle) => (
+            <tr
+              key={cycle.id}
+              className="dashboard-cycle-row"
+              onClick={() => onOpenDevice(cycle.device?.id ?? cycle.deviceId)}
+              title="Открыть карточку прибора"
+            >
+              <td className="strong-cell">{cycle.device?.name ?? cycle.deviceId}</td>
+              <td>
+                <StatusBadge label={cycleTypeLabels[cycle.type]} value={cycle.type} />
+              </td>
+              <td>
+                <StatusBadge label={cycleStatusLabels[getCycleDisplayStatus(cycle)]} value={getCycleDisplayStatus(cycle)} />
+              </td>
+              <td>{cycle.createdBy?.fullName ?? "Неизвестно"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
